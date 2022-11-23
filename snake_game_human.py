@@ -4,11 +4,12 @@ import random
 from enum import Enum
 from collections import namedtuple
 
-from datetime import datetime
 from pygame.locals import * # input
 
 SIZE = 40
-SPEED = 10
+SPEED = 0.5
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
 BACKGROUND_COLOR = (110, 110, 5)
 SIZE_SCREEN = (1040,800) #multiple de 40 obligatoire 1040 800
 
@@ -23,7 +24,6 @@ Point = namedtuple('Point', 'x, y')
 class Game:
     def __init__(self):
         pygame.init()
-
         self.surface = pygame.display.set_mode(SIZE_SCREEN)
         pygame.display.set_caption('Snake')
         self.clock = pygame.time.Clock()
@@ -72,13 +72,21 @@ class Game:
                 elif event.type == QUIT:
                     pygame.quit()
                     quit()
-
+        
         # 2. move
         self.render_background()
         self.snake.move(self.direction)
         self.head = Point(self.snake.x[0],self.snake.y[0])
         self.apple.draw()
         self.display_score()
+
+        # BFS
+
+        self.DFS(Point(self.head.x + SIZE, self.head.y), BLUE, occurence_test=True)
+        self.DFS(Point(self.head.x - SIZE, self.head.y), RED, occurence_test=True)
+        # print("head : " + str(self.head))
+        # self.next_state(self.head)
+
         pygame.display.flip()
 
         # 3. check if game over
@@ -123,14 +131,12 @@ class Game:
         if head is None:
             head = self.head
         ##  snake colliding with itself
-        for i in range(3,self.snake.length):
+        for i in range(1,self.snake.length):
             if self.collision(head.x, head.y, self.snake.x[i], self.snake.y[i]):
-                print("dead on him")
                 return True
 
         ##  snake colliding with the boundries of the window
         if not (0 <= head.x < SIZE_SCREEN[0] and 0 <= head.y < SIZE_SCREEN[1]):
-            print("dead by collision")
             return True
 
         return False
@@ -141,7 +147,7 @@ class Game:
 
     def reset(self):
         self.direction = Direction.DOWN
-        self.snake = Snake(self.surface,2, self.direction)
+        self.snake = Snake(self.surface,25, self.direction)
         self.snake.draw()
         self.head = Point(self.snake.x[0],self.snake.y[0])
 
@@ -150,6 +156,57 @@ class Game:
         self.apple.draw()
 
         self.score = 0
+
+    def draw_square(self, color, pos):
+        pygame.draw.rect(self.surface, color, pygame.Rect(pos[0], pos[1], SIZE, SIZE))
+
+    def next_state(self, state):
+        list = []
+        tempList = []
+        # print("state : " + str(state))
+
+        tempList.append(Point(state.x + SIZE, state.y))
+        tempList.append(Point(state.x - SIZE, state.y))
+        tempList.append(Point(state.x, state.y + SIZE))
+        tempList.append(Point(state.x, state.y - SIZE))
+        # print("tempList : " + str(tempList))
+
+        for tempState in tempList:
+            if not self.is_collision(tempState):
+                if tempState != self.head:
+                    list.append(tempState)
+        # print("list : " + str(list))
+        # print("len(list) : " + str(len(list)))
+
+        return list
+
+    def DFS(self, initial_state, color,occurence_test=True):
+
+        list_states_in_queue=[initial_state]
+        list_states_Explored=[]
+        iter=0
+
+        while list_states_in_queue:
+            current_state=list_states_in_queue.pop(0)
+            list_new_states=self.next_state(current_state)
+            for new_state in list_new_states:
+                self.draw_square(color, (new_state.x, new_state.y))
+                if not occurence_test or new_state not in list_states_Explored:
+                    iter+=1
+                    list_states_in_queue.insert(0,new_state)
+                    if occurence_test:
+                        list_states_Explored.append(new_state)
+
+        print("iter : " + str(iter))
+
+# class Node:
+    
+#     def __init__(self,state,father):
+#         self.State=state
+#         self.Father=father
+        
+#     def __repr__(self):
+#         return str(self.State)
 
 class Snake:
     def __init__(self, parent_screen, length, direction):
