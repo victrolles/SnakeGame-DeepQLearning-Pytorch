@@ -4,7 +4,7 @@ import numpy as np
 from collections import deque
 from game import GameAI, Direction, Point
 from model import Linear_QNet, QTrainer
-from helper import plot
+from helper import Plot
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
@@ -23,12 +23,13 @@ class Agent:
         self.epsilon = 0 # randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(16, 256, 3)
+        self.model = Linear_QNet(11, 256, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
     def get_state(self, game):
         head = game.head
+
         point_l = Point(head.x - SIZE, head.y)
         point_r = Point(head.x + SIZE, head.y)
         point_u = Point(head.x, head.y - SIZE)
@@ -38,47 +39,85 @@ class Agent:
         dir_r = game.snake.direction == Direction.RIGHT
         dir_u = game.snake.direction == Direction.UP
         dir_d = game.snake.direction == Direction.DOWN
+
+        danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
+        danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
+        danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
+
+        food_l = game.food.x < game.head.x  # food left
+        food_r = game.food.x > game.head.x  # food right
+        food_u = game.food.y < game.head.y  # food up
+        food_d = game.food.y > game.head.y  # food down
         
-        nbr_free_r = 0
-        nbr_free_l = 0
-        nbr_free_u = 0
-        nbr_free_d = 0
-
-        if not dir_l:
-            nbr_free_r = game.DFS(point_r, BLUE, occurence_test=True)
-
-        if not dir_r:
-            nbr_free_l = game.DFS(point_l, RED, occurence_test=True)
-
-        if not dir_d:
-            nbr_free_d = game.DFS(point_u, GREEN, occurence_test=True)
-
-        if not dir_u:
-            nbr_free_u = game.DFS(point_d, YELLOW, occurence_test=True)
-
-        dir_cons_l = nbr_free_l == max(nbr_free_l, nbr_free_r, nbr_free_u, nbr_free_d)
-        dir_cons_r = nbr_free_r == max(nbr_free_l, nbr_free_r, nbr_free_u, nbr_free_d)
-        dir_cons_u = nbr_free_u == max(nbr_free_l, nbr_free_r, nbr_free_u, nbr_free_d)
-        dir_cons_d = nbr_free_d == max(nbr_free_l, nbr_free_r, nbr_free_u, nbr_free_d)
+        # if danger_s:
+        #     # print("danger_straight")
+        #     if dir_l:
+        #         # print("left")
+        #         dir_cons_l = False
+        #         dir_cons_r = False
+        #         nbr_free_u = game.DFS(point_u, occurence_test=True)
+        #         if nbr_free_u > (game.snake.length-1)**2:
+        #             dir_cons_u = True
+        #             dir_cons_d = False
+        #         elif nbr_free_u > game.DFS(point_d, occurence_test=True):
+        #             dir_cons_u = True
+        #             dir_cons_d = False
+        #         else:
+        #             dir_cons_u = False
+        #             dir_cons_d = True
+        #     elif dir_r:
+        #         # print("right")
+        #         dir_cons_l = False
+        #         dir_cons_r = False
+        #         nbr_free_u = game.DFS(point_u, occurence_test=True)
+        #         if nbr_free_u > (game.snake.length-1)**2:
+        #             dir_cons_u = True
+        #             dir_cons_d = False
+        #         elif nbr_free_u > game.DFS(point_d, occurence_test=True):
+        #             dir_cons_u = True
+        #             dir_cons_d = False
+        #         else:
+        #             dir_cons_u = False
+        #             dir_cons_d = True
+        #     elif dir_u:
+        #         # print("up")
+        #         dir_cons_u = False
+        #         dir_cons_d = False
+        #         nbr_free_l = game.DFS(point_l, occurence_test=True)
+        #         if nbr_free_l > (game.snake.length-1)**2:
+        #             dir_cons_l = True
+        #             dir_cons_r = False
+        #         elif nbr_free_l > game.DFS(point_r, occurence_test=True):
+        #             dir_cons_l = True
+        #             dir_cons_r = False
+        #         else:
+        #             dir_cons_l = False
+        #             dir_cons_r = True
+        #     else:
+        #         # print("down")
+        #         dir_cons_u = False
+        #         dir_cons_d = False
+        #         nbr_free_l = game.DFS(point_l, occurence_test=True)
+        #         if nbr_free_l > (game.snake.length-1)**2:
+        #             dir_cons_l = True
+        #             dir_cons_r = False
+        #         elif nbr_free_l > game.DFS(point_r, occurence_test=True):
+        #             dir_cons_l = True
+        #             dir_cons_r = False
+        #         else:
+        #             dir_cons_l = False
+        #             dir_cons_r = True
+        # else:
+        #     dir_cons_l = False
+        #     dir_cons_r = False
+        #     dir_cons_u = False
+        #     dir_cons_d = False
 
         state = [
-            # Danger straight
-            (dir_r and game.is_collision(point_r)) or 
-            (dir_l and game.is_collision(point_l)) or 
-            (dir_u and game.is_collision(point_u)) or 
-            (dir_d and game.is_collision(point_d)),
-
-            # Danger right
-            (dir_u and game.is_collision(point_r)) or 
-            (dir_d and game.is_collision(point_l)) or 
-            (dir_l and game.is_collision(point_u)) or 
-            (dir_r and game.is_collision(point_d)),
-
-            # Danger left
-            (dir_d and game.is_collision(point_r)) or 
-            (dir_u and game.is_collision(point_l)) or 
-            (dir_r and game.is_collision(point_u)) or 
-            (dir_l and game.is_collision(point_d)),
+            # Danger straight / right / left
+            danger_s,
+            danger_r,
+            danger_l,
             
             # Move direction
             dir_l,
@@ -87,19 +126,19 @@ class Agent:
             dir_d,
             
             # Food location 
-            game.food.x < game.head.x,  # food left
-            game.food.x > game.head.x,  # food right
-            game.food.y < game.head.y,  # food up
-            game.food.y > game.head.y,  # food down
+            food_l,
+            food_r,
+            food_u,
+            food_d,
 
-            # Length of snake
-            game.snake.length,
+            # # Length of snake
+            # game.snake.length,
 
-            # Number of free cells
-            dir_cons_l,
-            dir_cons_r,
-            dir_cons_u,
-            dir_cons_d
+            # # Recommended direction if danger straigth
+            # dir_cons_l,
+            # dir_cons_r,
+            # dir_cons_u,
+            # dir_cons_d
             ]
 
         return np.array(state, dtype=int)
@@ -123,9 +162,9 @@ class Agent:
 
     def get_action(self, state):
         # random moves: tradeoff exploration / exploitation
-        self.epsilon = 320 - self.epoch
+        self.epsilon = 80 - self.epoch
         final_move = [0,0,0]
-        if random.randint(0, 800) < self.epsilon:
+        if random.randint(0, 200) < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
@@ -140,10 +179,13 @@ class Training:
     def __init__(self):
         self.plot_scores = []
         self.plot_mean_scores = []
+        self.plot_mean_10_scores = []
+        self.plot_train_loss = []
         self.total_score = 0
         self.record = 0
         self.agent = Agent()
         self.game = GameAI()
+        self.plotC = Plot()
         self.load_nn()
 
     def train(self):
@@ -176,11 +218,20 @@ class Training:
 
                 print('Game', self.agent.epoch, 'Score', score, 'Record:', self.record)
 
+                # information for plotting
                 self.plot_scores.append(score)
+
                 self.total_score += score
+
                 mean_score = self.total_score / self.agent.epoch
+                mean_10_score = np.mean(self.plot_scores[-10:])
+
                 self.plot_mean_scores.append(mean_score)
-                plot(self.plot_scores, self.plot_mean_scores)
+                self.plot_mean_10_scores.append(mean_10_score)
+
+                self.plot_train_loss.append(self.agent.trainer.loss.item())
+
+                self.plotC.update_plot(self.plot_scores, self.plot_mean_scores, self.plot_mean_10_scores, self.plot_train_loss)
 
     def save(self):
         torch.save({
@@ -190,6 +241,8 @@ class Training:
             'loss': self.agent.trainer.loss,
             'plot_scores': self.plot_scores,
             'plot_mean_scores': self.plot_mean_scores,
+            'plot_mean_10_scores': self.plot_mean_10_scores,
+            'plot_train_loss': self.plot_train_loss,
             'record': self.record,
             'total_score': self.total_score,
             'timer': self.game.time + self.game.saved_time,
@@ -203,6 +256,8 @@ class Training:
         self.agent.trainer.loss = checkpoint['loss']
         self.plot_scores = checkpoint['plot_scores']
         self.plot_mean_scores = checkpoint['plot_mean_scores']
+        self.plot_mean_10_scores = checkpoint['plot_mean_10_scores']
+        self.plot_train_loss = checkpoint['plot_train_loss']
         self.record = checkpoint['record']
         self.total_score = checkpoint['total_score']
         self.game.saved_time = checkpoint['timer']

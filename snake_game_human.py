@@ -1,13 +1,15 @@
 import pygame
-import time
+from timeit import default_timer as timer
 import random
 from enum import Enum
 from collections import namedtuple
+import numpy as np
+from numba import cuda
 
 from pygame.locals import * # input
 
 SIZE = 40
-SPEED = 10
+SPEED = 2
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
@@ -34,6 +36,11 @@ class Game:
         self.time = 0
         self.saved_time = 0
         self.reset()
+
+        if cuda.is_available():
+            print("cuda is available")
+
+    
         
 
     def run(self): 
@@ -85,21 +92,24 @@ class Game:
         self.display_score()
 
         # BFS
-        # print("------------------------------------------------------")
-        # print("right")
-        # if self.direction != Direction.LEFT:
-        #     self.DFS(Point(self.head.x + SIZE, self.head.y), BLUE, occurence_test=True)
-        # print("left")
-        # if self.direction != Direction.RIGHT:
-        #     self.DFS(Point(self.head.x - SIZE, self.head.y), RED, occurence_test=True)
-        # print("down")
-        # if self.direction != Direction.UP:
-        #     self.DFS(Point(self.head.x, self.head.y + SIZE), GREEN, occurence_test=True)
-        # print("up")
-        # if self.direction != Direction.DOWN:
-        #     self.DFS(Point(self.head.x, self.head.y - SIZE), YELLOW, occurence_test=True)
-        # print("head : " + str(self.head))
-        # self.next_state(self.head)
+        print("------------------------------------------------------")
+        start_time = timer()
+        
+        if self.direction != Direction.LEFT:
+            right = self.DFS(Point(self.head.x + SIZE, self.head.y), BLUE, occurence_test=True)
+            print("right : " + str(right))
+        if self.direction != Direction.RIGHT:
+            left = self.DFS(Point(self.head.x - SIZE, self.head.y), RED, occurence_test=True)
+            print("left : " + str(left))
+        if self.direction != Direction.UP:
+            down = self.DFS(Point(self.head.x, self.head.y + SIZE), GREEN, occurence_test=True)
+            print("down : " + str(down))
+        if self.direction != Direction.DOWN:
+            up = self.DFS(Point(self.head.x, self.head.y - SIZE), YELLOW, occurence_test=True)
+            print("up : " + str(up))
+
+        print("time : " + str(timer() - start_time))
+
 
         pygame.display.flip()
 
@@ -129,27 +139,11 @@ class Game:
 
     def display_score(self):
         self.time = int((pygame.time.get_ticks())/1000)
-        old_time = self.time + self.saved_time
-        h = 0
-        m = 0
-        s = 0
-
-        if time < 60:
-            s = time
-            score2 = font.render(f"Timer: {self.time} s", True, (255,255,255))
-        elif time < 3600:
-            m = time // 60
-            s = time % 60
-            print(m, s)
-        else:
-            h = time // 3600
-            m = (time % 3600) // 60
-            s = (time % 3600) % 60
-            print(h, m, s)
 
         font = pygame.font.SysFont('arial',30)
         score = font.render(f"Score: {self.score}", True, (255,255,255))
         self.surface.blit(score,(800,10))
+        score2 = font.render(f"Timer: {self.time} s", True, (255,255,255))
         self.surface.blit(score2,(800,50))
 
     def collision(self,x1, y1, x2, y2):
@@ -218,23 +212,16 @@ class Game:
             current_state=list_states_in_queue.pop(0)
             list_new_states=self.next_state(current_state)
             for new_state in list_new_states:
-                self.draw_square(color, (new_state.x, new_state.y))
+                # self.draw_square(color, (new_state.x, new_state.y))
                 if not occurence_test or new_state not in list_states_Explored:
                     iter+=1
-                    list_states_in_queue.insert(0,new_state)
+                    # if iter > (self.snake.length-1)**2:
+                    #     return iter
+                    list_states_in_queue.append(new_state)
                     if occurence_test:
                         list_states_Explored.append(new_state)
-
         return iter
 
-# class Node:
-    
-#     def __init__(self,state,father):
-#         self.State=state
-#         self.Father=father
-        
-#     def __repr__(self):
-#         return str(self.State)
 
 class Snake:
     def __init__(self, parent_screen, length, direction):

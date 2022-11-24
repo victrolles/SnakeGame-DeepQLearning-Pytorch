@@ -109,8 +109,8 @@ class GameAI:
 
         
         score = font.render(f"Score: {self.score}", True, (255,255,255))
-        self.surface.blit(score,(800,10))
-        self.surface.blit(score2,(800,50))
+        self.surface.blit(score,(750,10))
+        self.surface.blit(score2,(750,50))
 
     def collision(self,x1, y1, x2, y2):
         if x1 >= x2 and x1 < x2 + SIZE:
@@ -166,7 +166,7 @@ class GameAI:
 
         return list
 
-    def DFS(self, initial_state, color,occurence_test=True):
+    def DFS(self, initial_state, occurence_test=True):
 
         list_states_in_queue=[initial_state]
         list_states_Explored=[]
@@ -176,19 +176,14 @@ class GameAI:
             current_state=list_states_in_queue.pop(0)
             list_new_states=self.next_state(current_state)
             for new_state in list_new_states:
-                self.draw_square(color, (new_state.x, new_state.y))
                 if not occurence_test or new_state not in list_states_Explored:
                     iter+=1
-                    if iter>10:
+                    if iter > (self.snake.length-1)**2:
                         return iter
-                    list_states_in_queue.insert(0,new_state)
+                    list_states_in_queue.append(new_state)
                     if occurence_test:
                         list_states_Explored.append(new_state)
-
         return iter
-
-    def draw_square(self, color, pos):
-        pygame.draw.rect(self.surface, color, pygame.Rect(pos[0], pos[1], SIZE, SIZE))
 
 class Snake:
     def __init__(self, parent_screen, length, direction):
