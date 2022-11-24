@@ -9,10 +9,11 @@ from pygame.locals import * # input
 
 pygame.init()
 
+BACKGROUND_COLOR = (110, 110, 5)
+
 SIZE = 40
 SPEED = 40
-BACKGROUND_COLOR = (110, 110, 5)
-SIZE_SCREEN = (1280,960) #multiple de 40 obligatoire 1040 800
+SIZE_SCREEN = (1040, 800) #multiple de 40 obligatoire 1040 800  , 1280,960
 
 class Direction(Enum):
     RIGHT = 1
@@ -30,6 +31,8 @@ class GameAI:
         pygame.display.set_caption('Snake')
         self.clock = pygame.time.Clock()
         self.surface.fill((255,255,255))
+        self.time = 0
+        self.saved_time = 0
         self.reset()
 
     def play(self, action):
@@ -84,10 +87,29 @@ class GameAI:
         return reward, game_over, self.score
 
     def display_score(self):
+        self.time = int((pygame.time.get_ticks())/1000)
+        new_time = self.time + self.saved_time
+        h = 0
+        m = 0
+        s = 0
+
         font = pygame.font.SysFont('arial',30)
+        if new_time < 60:
+            s = new_time
+            score2 = font.render(f"Timer: {s} s", True, (255,255,255))
+        elif new_time < 3600:
+            m = new_time // 60
+            s = new_time % 60
+            score2 = font.render(f"Timer: {m} min {s} s", True, (255,255,255))
+        else:
+            h = new_time // 3600
+            m = (new_time % 3600) // 60
+            s = (new_time % 3600) % 60
+            score2 = font.render(f"Timer: {h} hours {m} min {s} s", True, (255,255,255))
+
+        
         score = font.render(f"Score: {self.score}", True, (255,255,255))
         self.surface.blit(score,(800,10))
-        score2 = font.render(f"Timer: {int((pygame.time.get_ticks())/1000)} s", True, (255,255,255))
         self.surface.blit(score2,(800,50))
 
     def collision(self,x1, y1, x2, y2):
@@ -127,6 +149,46 @@ class GameAI:
         self.head = Point(self.snake.x[0],self.snake.y[0])
         self.food = Point(self.apple.x,self.apple.y)
         self.frame_iteration = 0
+
+    def next_state(self, state):
+        list = []
+        tempList = []
+
+        tempList.append(Point(state.x + SIZE, state.y))
+        tempList.append(Point(state.x - SIZE, state.y))
+        tempList.append(Point(state.x, state.y + SIZE))
+        tempList.append(Point(state.x, state.y - SIZE))
+
+        for tempState in tempList:
+            if not self.is_collision(tempState):
+                if tempState != self.head:
+                    list.append(tempState)
+
+        return list
+
+    def DFS(self, initial_state, color,occurence_test=True):
+
+        list_states_in_queue=[initial_state]
+        list_states_Explored=[]
+        iter=0
+
+        while list_states_in_queue:
+            current_state=list_states_in_queue.pop(0)
+            list_new_states=self.next_state(current_state)
+            for new_state in list_new_states:
+                self.draw_square(color, (new_state.x, new_state.y))
+                if not occurence_test or new_state not in list_states_Explored:
+                    iter+=1
+                    if iter>10:
+                        return iter
+                    list_states_in_queue.insert(0,new_state)
+                    if occurence_test:
+                        list_states_Explored.append(new_state)
+
+        return iter
+
+    def draw_square(self, color, pos):
+        pygame.draw.rect(self.surface, color, pygame.Rect(pos[0], pos[1], SIZE, SIZE))
 
 class Snake:
     def __init__(self, parent_screen, length, direction):
