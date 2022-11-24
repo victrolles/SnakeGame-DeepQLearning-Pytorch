@@ -7,9 +7,11 @@ from collections import namedtuple
 from pygame.locals import * # input
 
 SIZE = 40
-SPEED = 0.5
+SPEED = 10
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
 BACKGROUND_COLOR = (110, 110, 5)
 SIZE_SCREEN = (1040,800) #multiple de 40 obligatoire 1040 800
 
@@ -29,6 +31,8 @@ class Game:
         self.clock = pygame.time.Clock()
         # self.time = pygame.time.Clock()
         self.surface.fill((255,255,255))
+        self.time = 0
+        self.saved_time = 0
         self.reset()
         
 
@@ -81,9 +85,19 @@ class Game:
         self.display_score()
 
         # BFS
-
-        self.DFS(Point(self.head.x + SIZE, self.head.y), BLUE, occurence_test=True)
-        self.DFS(Point(self.head.x - SIZE, self.head.y), RED, occurence_test=True)
+        # print("------------------------------------------------------")
+        # print("right")
+        # if self.direction != Direction.LEFT:
+        #     self.DFS(Point(self.head.x + SIZE, self.head.y), BLUE, occurence_test=True)
+        # print("left")
+        # if self.direction != Direction.RIGHT:
+        #     self.DFS(Point(self.head.x - SIZE, self.head.y), RED, occurence_test=True)
+        # print("down")
+        # if self.direction != Direction.UP:
+        #     self.DFS(Point(self.head.x, self.head.y + SIZE), GREEN, occurence_test=True)
+        # print("up")
+        # if self.direction != Direction.DOWN:
+        #     self.DFS(Point(self.head.x, self.head.y - SIZE), YELLOW, occurence_test=True)
         # print("head : " + str(self.head))
         # self.next_state(self.head)
 
@@ -114,10 +128,28 @@ class Game:
         return game_over, self.score  
 
     def display_score(self):
+        self.time = int((pygame.time.get_ticks())/1000)
+        old_time = self.time + self.saved_time
+        h = 0
+        m = 0
+        s = 0
+
+        if time < 60:
+            s = time
+            score2 = font.render(f"Timer: {self.time} s", True, (255,255,255))
+        elif time < 3600:
+            m = time // 60
+            s = time % 60
+            print(m, s)
+        else:
+            h = time // 3600
+            m = (time % 3600) // 60
+            s = (time % 3600) % 60
+            print(h, m, s)
+
         font = pygame.font.SysFont('arial',30)
         score = font.render(f"Score: {self.score}", True, (255,255,255))
         self.surface.blit(score,(800,10))
-        score2 = font.render(f"Timer: {int((pygame.time.get_ticks())/1000)} s", True, (255,255,255))
         self.surface.blit(score2,(800,50))
 
     def collision(self,x1, y1, x2, y2):
@@ -147,7 +179,7 @@ class Game:
 
     def reset(self):
         self.direction = Direction.DOWN
-        self.snake = Snake(self.surface,25, self.direction)
+        self.snake = Snake(self.surface,2, self.direction)
         self.snake.draw()
         self.head = Point(self.snake.x[0],self.snake.y[0])
 
@@ -163,20 +195,16 @@ class Game:
     def next_state(self, state):
         list = []
         tempList = []
-        # print("state : " + str(state))
 
         tempList.append(Point(state.x + SIZE, state.y))
         tempList.append(Point(state.x - SIZE, state.y))
         tempList.append(Point(state.x, state.y + SIZE))
         tempList.append(Point(state.x, state.y - SIZE))
-        # print("tempList : " + str(tempList))
 
         for tempState in tempList:
             if not self.is_collision(tempState):
                 if tempState != self.head:
                     list.append(tempState)
-        # print("list : " + str(list))
-        # print("len(list) : " + str(len(list)))
 
         return list
 
@@ -197,7 +225,7 @@ class Game:
                     if occurence_test:
                         list_states_Explored.append(new_state)
 
-        print("iter : " + str(iter))
+        return iter
 
 # class Node:
     

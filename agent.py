@@ -11,6 +11,11 @@ BATCH_SIZE = 1000
 LR = 0.001
 SIZE = 40
 
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+
 class Agent:
 
     def __init__(self):
@@ -18,7 +23,7 @@ class Agent:
         self.epsilon = 0 # randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11, 256, 3)
+        self.model = Linear_QNet(16, 256, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
@@ -33,6 +38,28 @@ class Agent:
         dir_r = game.snake.direction == Direction.RIGHT
         dir_u = game.snake.direction == Direction.UP
         dir_d = game.snake.direction == Direction.DOWN
+        
+        nbr_free_r = 0
+        nbr_free_l = 0
+        nbr_free_u = 0
+        nbr_free_d = 0
+
+        if not dir_l:
+            nbr_free_r = game.DFS(point_r, BLUE, occurence_test=True)
+
+        if not dir_r:
+            nbr_free_l = game.DFS(point_l, RED, occurence_test=True)
+
+        if not dir_d:
+            nbr_free_d = game.DFS(point_u, GREEN, occurence_test=True)
+
+        if not dir_u:
+            nbr_free_u = game.DFS(point_d, YELLOW, occurence_test=True)
+
+        dir_cons_l = nbr_free_l == max(nbr_free_l, nbr_free_r, nbr_free_u, nbr_free_d)
+        dir_cons_r = nbr_free_r == max(nbr_free_l, nbr_free_r, nbr_free_u, nbr_free_d)
+        dir_cons_u = nbr_free_u == max(nbr_free_l, nbr_free_r, nbr_free_u, nbr_free_d)
+        dir_cons_d = nbr_free_d == max(nbr_free_l, nbr_free_r, nbr_free_u, nbr_free_d)
 
         state = [
             # Danger straight
@@ -63,9 +90,18 @@ class Agent:
             game.food.x < game.head.x,  # food left
             game.food.x > game.head.x,  # food right
             game.food.y < game.head.y,  # food up
-            game.food.y > game.head.y  # food down
+            game.food.y > game.head.y,  # food down
+
+            # Length of snake
+            game.snake.length,
+
+            # Number of free cells
+            dir_cons_l,
+            dir_cons_r,
+            dir_cons_u,
+            dir_cons_d
             ]
-        # print("state: ", state)
+
         return np.array(state, dtype=int)
 
     def remember(self, state, action, reward, next_state, done):
@@ -87,9 +123,9 @@ class Agent:
 
     def get_action(self, state):
         # random moves: tradeoff exploration / exploitation
-        self.epsilon = 80 - self.epoch
+        self.epsilon = 320 - self.epoch
         final_move = [0,0,0]
-        if random.randint(0, 200) < self.epsilon:
+        if random.randint(0, 800) < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
@@ -136,7 +172,7 @@ class Training:
 
                 if score > self.record:
                     self.record = score
-                    # self.save()
+                    self.save()
 
                 print('Game', self.agent.epoch, 'Score', score, 'Record:', self.record)
 
@@ -155,6 +191,8 @@ class Training:
             'plot_scores': self.plot_scores,
             'plot_mean_scores': self.plot_mean_scores,
             'record': self.record,
+            'total_score': self.total_score,
+            'timer': self.game.time + self.game.saved_time,
         }, 'model/model.pth')
 
     def load_nn(self):
@@ -166,6 +204,8 @@ class Training:
         self.plot_scores = checkpoint['plot_scores']
         self.plot_mean_scores = checkpoint['plot_mean_scores']
         self.record = checkpoint['record']
+        self.total_score = checkpoint['total_score']
+        self.game.saved_time = checkpoint['timer']
         self.agent.model.eval()
 
 
