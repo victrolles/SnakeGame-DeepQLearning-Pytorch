@@ -9,7 +9,7 @@ from helper import Plot
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-LR = 0.001 #0.0001
+LR = 0.00025 #0.001
 SIZE = 40
 
 RED = (255, 0, 0)
@@ -24,7 +24,7 @@ class Agent:
         self.epsilon = 0 # randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(12, 256, 3)
+        self.model = Linear_QNet(9, 256, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
@@ -50,99 +50,139 @@ class Agent:
         food_u = game.food.y < game.head.y  # food up
         food_d = game.food.y > game.head.y  # food down
 
-        dir_cons_l = False
-        dir_cons_r = False
-        dir_cons_u = False
-        dir_cons_d = False
+        food_left = abs(game.food.x - game.head.x)
+        food_right = abs(game.food.x + game.head.x)
+        food_up = abs(game.food.y - game.head.y)
+        food_down = abs(game.food.y + game.head.y)
 
-        if dir_l:
-            left = game.DFS(point_l, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            if left > (game.snake.length-1)**2:
-                dir_cons_l = True
-                # print("left")
-            elif left >= up and left >= down:
-                dir_cons_l = True
-                # print("left")
-            elif up >= down:
-                dir_cons_u = True
-                # print("up")
-            else:
-                dir_cons_d = True
-                # print("down")
-        elif dir_r:
+        # dir_cons_l = False
+        # dir_cons_r = False
+        # dir_cons_u = False
+        # dir_cons_d = False
+
+        right = 0
+        left = 0
+        up = 0
+        down = 0
+
+        if game.snake.direction != Direction.LEFT:
             right = game.DFS(point_r, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            if right > (game.snake.length-1)**2:
-                dir_cons_r = True
-                # print("right")
-            elif right >= up and right >= down:
-                dir_cons_r = True
-                # print("right")
-            elif up >= down:
-                dir_cons_u = True
-                # print("up")
-            else:
-                dir_cons_d = True
-                # print("down")
-        elif dir_u:
-            right = game.DFS(point_r, occurence_test=True)
+        if game.snake.direction != Direction.RIGHT:
             left = game.DFS(point_l, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            if up > (game.snake.length-1)**2:
-                dir_cons_u = True
-                # print("up")
-            elif up >= right and up >= left:
-                dir_cons_u = True
-                # print("up")
-            elif right >= left:
-                dir_cons_r = True
-                # print("right")
-            else:
-                dir_cons_l = True
-                # print("left")
-        else:
-            right = game.DFS(point_r, occurence_test=True)
-            left = game.DFS(point_l, occurence_test=True)
+        if game.snake.direction != Direction.UP:
             down = game.DFS(point_d, occurence_test=True)
-            if down > (game.snake.length-1)**2:
-                dir_cons_d = True
-                # print("down")
-            elif down >= right and down >= left:
-                dir_cons_d = True
-                # print("down")
-            elif right >= left:
-                dir_cons_r = True
-                # print("right")
-            else:
-                dir_cons_l = True
-                # print("left")
+        if game.snake.direction != Direction.DOWN:
+            up = game.DFS(point_u, occurence_test=True)
+
+        # dir_cons_l = right == max(right, left, down, up)
+        # dir_cons_r = left == max(right, left, down, up)
+        # dir_cons_u = down == max(right, left, down, up)
+        # dir_cons_d = up == max(right, left, down, up)
+        
+        # if danger_s:
+        #     # print("danger_straight")
+        #     if dir_l:
+        #         # print("left")
+        #         dir_cons_l = False
+        #         dir_cons_r = False
+        #         nbr_free_u = game.DFS(point_u, occurence_test=True)
+        #         if nbr_free_u > (game.snake.length-1)**2:
+        #             dir_cons_u = True
+        #             dir_cons_d = False
+        #         elif nbr_free_u > game.DFS(point_d, occurence_test=True):
+        #             dir_cons_u = True
+        #             dir_cons_d = False
+        #         else:
+        #             dir_cons_u = False
+        #             dir_cons_d = True
+        #     elif dir_r:
+        #         # print("right")
+        #         dir_cons_l = False
+        #         dir_cons_r = False
+        #         nbr_free_u = game.DFS(point_u, occurence_test=True)
+        #         if nbr_free_u > (game.snake.length-1)**2:
+        #             dir_cons_u = True
+        #             dir_cons_d = False
+        #         elif nbr_free_u > game.DFS(point_d, occurence_test=True):
+        #             dir_cons_u = True
+        #             dir_cons_d = False
+        #         else:
+        #             dir_cons_u = False
+        #             dir_cons_d = True
+        #     elif dir_u:
+        #         # print("up")
+        #         dir_cons_u = False
+        #         dir_cons_d = False
+        #         nbr_free_l = game.DFS(point_l, occurence_test=True)
+        #         if nbr_free_l > (game.snake.length-1)**2:
+        #             dir_cons_l = True
+        #             dir_cons_r = False
+        #         elif nbr_free_l > game.DFS(point_r, occurence_test=True):
+        #             dir_cons_l = True
+        #             dir_cons_r = False
+        #         else:
+        #             dir_cons_l = False
+        #             dir_cons_r = True
+        #     else:
+        #         # print("down")
+        #         dir_cons_u = False
+        #         dir_cons_d = False
+        #         nbr_free_l = game.DFS(point_l, occurence_test=True)
+        #         if nbr_free_l > (game.snake.length-1)**2:
+        #             dir_cons_l = True
+        #             dir_cons_r = False
+        #         elif nbr_free_l > game.DFS(point_r, occurence_test=True):
+        #             dir_cons_l = True
+        #             dir_cons_r = False
+        #         else:
+        #             dir_cons_l = False
+        #             dir_cons_r = True
+        # else:
+        #     dir_cons_l = False
+        #     dir_cons_r = False
+        #     dir_cons_u = False
+        #     dir_cons_d = False
 
         state = [
-            #direction
-            dir_l,
-            dir_r,
-            dir_u,
-            dir_d,
-            
-            # Recommended direction
-            dir_cons_l,
-            dir_cons_r,
-            dir_cons_u,
-            dir_cons_d,
-
-            # Food location 
-            food_l,
-            food_r,
-            food_u,
-            food_d,
-
-            # Length of snake
-            # danger_l,
+            # Danger straight / right / left
+            # danger_s,
             # danger_r,
-            # danger_s
+            # danger_l,
+            
+            # # Move direction
+            # dir_l,
+            # dir_r,
+            # dir_u,
+            # dir_d,
+            
+            # # Food location 
+            # food_l,
+            # food_r,
+            # food_u,
+            # food_d,
+
+
+
+            # # Length of snake
+            # game.snake.length/520,
+
+            # # # Recommended direction if danger straigth
+            # # dir_cons_l,
+            # # dir_cons_r,
+            # # dir_cons_u,
+            # # dir_cons_d
+
+            # # Distance to food
+            # food_left/1040,
+            # food_right/1040,
+            # food_up/800,
+            # food_down/800,
+
+            # # Recommended direction if danger straigth
+            # right/520,
+            # left/520,
+            # up/520,
+            # down/520
             ]
 
         # print("state: ", state)
@@ -191,7 +231,7 @@ class Training:
         self.agent = Agent()
         self.game = GameAI()
         self.plotC = Plot()
-        # self.load_nn()
+        #self.load_nn()
 
     def train(self):
         while True:
