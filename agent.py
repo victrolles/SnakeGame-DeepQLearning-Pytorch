@@ -9,7 +9,7 @@ from helper import Plot
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-LR = 0.001 #0.0001
+LR = 0.001 #0.001
 SIZE = 40
 
 RED = (255, 0, 0)
@@ -24,7 +24,7 @@ class Agent:
         self.epsilon = 0 # randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(12, 256, 3)
+        self.model = Linear_QNet(11, 256, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
@@ -41,84 +41,14 @@ class Agent:
         dir_u = game.snake.direction == Direction.UP
         dir_d = game.snake.direction == Direction.DOWN
 
-        # danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
-        # danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
-        # danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
+        danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
+        danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
+        danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
 
         food_l = game.food.x < game.head.x  # food left
         food_r = game.food.x > game.head.x  # food right
         food_u = game.food.y < game.head.y  # food up
         food_d = game.food.y > game.head.y  # food down
-
-        dir_cons_l = False
-        dir_cons_r = False
-        dir_cons_u = False
-        dir_cons_d = False
-
-        if dir_l:
-            left = game.DFS(point_l, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            if left > (game.snake.length-1)**2:
-                dir_cons_l = True
-                # print("left")
-            elif left >= up and left >= down:
-                dir_cons_l = True
-                # print("left")
-            elif up >= down:
-                dir_cons_u = True
-                # print("up")
-            else:
-                dir_cons_d = True
-                # print("down")
-        elif dir_r:
-            right = game.DFS(point_r, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            if right > (game.snake.length-1)**2:
-                dir_cons_r = True
-                # print("right")
-            elif right >= up and right >= down:
-                dir_cons_r = True
-                # print("right")
-            elif up >= down:
-                dir_cons_u = True
-                # print("up")
-            else:
-                dir_cons_d = True
-                # print("down")
-        elif dir_u:
-            right = game.DFS(point_r, occurence_test=True)
-            left = game.DFS(point_l, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            if up > (game.snake.length-1)**2:
-                dir_cons_u = True
-                # print("up")
-            elif up >= right and up >= left:
-                dir_cons_u = True
-                # print("up")
-            elif right >= left:
-                dir_cons_r = True
-                # print("right")
-            else:
-                dir_cons_l = True
-                # print("left")
-        else:
-            right = game.DFS(point_r, occurence_test=True)
-            left = game.DFS(point_l, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            if down > (game.snake.length-1)**2:
-                dir_cons_d = True
-                # print("down")
-            elif down >= right and down >= left:
-                dir_cons_d = True
-                # print("down")
-            elif right >= left:
-                dir_cons_r = True
-                # print("right")
-            else:
-                dir_cons_l = True
-                # print("left")
 
         state = [
             #direction
@@ -126,12 +56,6 @@ class Agent:
             dir_r,
             dir_u,
             dir_d,
-            
-            # Recommended direction
-            dir_cons_l,
-            dir_cons_r,
-            dir_cons_u,
-            dir_cons_d,
 
             # Food location 
             food_l,
@@ -140,9 +64,9 @@ class Agent:
             food_d,
 
             # Length of snake
-            # danger_l,
-            # danger_r,
-            # danger_s
+            danger_l,
+            danger_r,
+            danger_s
             ]
 
         # print("state: ", state)
@@ -167,9 +91,9 @@ class Agent:
 
     def get_action(self, state):
         # random moves: tradeoff exploration / exploitation
-        self.epsilon = 320 - self.epoch # 80
+        self.epsilon = 80 - self.epoch # 80
         final_move = [0,0,0]
-        if random.randint(0, 800) < self.epsilon: # 200
+        if random.randint(0, 200) < self.epsilon: # 200
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
