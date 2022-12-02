@@ -9,11 +9,16 @@ from pygame.locals import * # input
 
 pygame.init()
 
-BACKGROUND_COLOR = (110, 110, 5)
+BACKGROUND_COLOR = (0, 102, 0)
+RED = (255, 0, 0)
+PINK = (255, 0, 255)
+DARK_PINK = (102, 0, 102)
+BLUE = (0, 0, 255)
+DARK_BLUE = (0, 0, 153)
 
 SIZE = 40
 SPEED = 40
-SIZE_SCREEN = (1040, 800) #multiple de 40 obligatoire 1040 800  , 1280,960
+SIZE_SCREEN = (1040, 800) #multiple de 30
 
 class Direction(Enum):
     RIGHT = 1
@@ -30,7 +35,6 @@ class GameAI:
         self.surface = pygame.display.set_mode(SIZE_SCREEN)
         pygame.display.set_caption('Snake')
         self.clock = pygame.time.Clock()
-        self.surface.fill((255,255,255))
         self.time = 0
         self.saved_time = 0
         self.reset()
@@ -53,6 +57,7 @@ class GameAI:
         # 2. move
         self.render_background()
         self.snake.move(action)
+        self.snake.draw()
         self.head = Point(self.snake.x[0],self.snake.y[0])
         self.apple.draw()
         self.display_score()
@@ -134,21 +139,20 @@ class GameAI:
         return False
 
     def render_background(self):
-        bg = pygame.image.load("resources/background.jpg")
-        self.surface.blit(bg, (0,0))
+        self.surface.fill(BACKGROUND_COLOR)
 
     def reset(self):
-        self.direction = Direction.DOWN
-        self.snake = Snake(self.surface,2, self.direction)
+        self.snake = Snake(self.surface,True)
         self.snake.draw()
         self.food = None
-        self.apple = Apple(self.surface)
+        self.apple = Apple(self.surface, self.snake)
         self.apple.draw()
         
         self.score = 0
         self.head = Point(self.snake.x[0],self.snake.y[0])
         self.food = Point(self.apple.x,self.apple.y)
         self.frame_iteration = 0
+        
 
     def next_state(self, state):
         list = []
@@ -166,33 +170,95 @@ class GameAI:
 
         return list
 
-    def DFS(self, initial_state, occurence_test=True):
+    # def DFS(self, initial_state, occurence_test=True):
 
-        list_states_in_queue=[initial_state]
-        list_states_Explored=[]
-        iter=0
+    #     list_states_in_queue=[initial_state]
+    #     list_states_Explored=[]
+    #     iter=0
 
-        while list_states_in_queue:
-            current_state=list_states_in_queue.pop(0)
-            list_new_states=self.next_state(current_state)
-            for new_state in list_new_states:
-                if not occurence_test or new_state not in list_states_Explored:
-                    iter+=1
-                    if iter > (self.snake.length-1)**2:
-                        return iter
-                    list_states_in_queue.append(new_state)
-                    if occurence_test:
-                        list_states_Explored.append(new_state)
-        return iter
+    #     while list_states_in_queue:
+    #         current_state=list_states_in_queue.pop(0)
+    #         list_new_states=self.next_state(current_state)
+    #         for new_state in list_new_states:
+    #             if not occurence_test or new_state not in list_states_Explored:
+    #                 iter+=1
+    #                 if iter > (self.snake.length-1)**2:
+    #                     return iter
+    #                 list_states_in_queue.append(new_state)
+    #                 if occurence_test:
+    #                     list_states_Explored.append(new_state)
+    #     return iter
 
 class Snake:
-    def __init__(self, parent_screen, length, direction):
+    def __init__(self, parent_screen, random_init=False):
         self.parent_screen = parent_screen
-        self.length = length
-        self.block = pygame.image.load("resources/block.jpg").convert()
-        self.x = [SIZE_SCREEN[0] / 2]*length
-        self.y = [SIZE_SCREEN[1] / 2]*length
-        self.direction = direction
+        if random_init:
+            self.length = random.randint(10, 40)
+            self.direction = Direction(random.randint(1,4))
+            self.create_random_snake()
+        else:
+            self.length = 2
+            self.direction = Direction.DOWN
+            self.x = [SIZE_SCREEN[0] / 2, SIZE_SCREEN[0] / 2]
+            self.y = [SIZE_SCREEN[1] / 2, SIZE_SCREEN[1] / 2 - SIZE]
+        
+
+    def create_random_snake(self):
+        x = random.randint(2, SIZE_SCREEN[0] / SIZE - 2) * SIZE
+        y = random.randint(2, SIZE_SCREEN[1] / SIZE - 2) * SIZE
+        self.x = [x]
+        self.y = [y]
+
+        direction = self.direction
+        for i in range(1, self.length):
+            if direction == Direction.RIGHT:
+                x = x - SIZE
+                if x < 0:
+                    x = x + SIZE
+                    y=y-SIZE
+                    if y < 0:
+                        y = y +2*SIZE
+                        direction = Direction.UP
+                    else:
+                        direction = Direction.DOWN
+                self.x.append(x)
+                self.y.append(y)
+            elif direction == Direction.LEFT:
+                x = x + SIZE
+                if x > SIZE_SCREEN[0]-SIZE:
+                    x = x - SIZE
+                    y=y+SIZE
+                    if y < 0:
+                        y = y -2*SIZE
+                        direction = Direction.DOWN
+                    else:
+                        direction = Direction.UP
+                self.x.append(x)
+                self.y.append(y)
+            elif direction == Direction.UP:
+                y = y + SIZE
+                if y > SIZE_SCREEN[1]-SIZE:
+                    y = y - SIZE
+                    x=x-SIZE
+                    if x < 0:
+                        x = x +2*SIZE
+                        direction = Direction.LEFT
+                    else:
+                        direction = Direction.RIGHT
+                self.x.append(x)
+                self.y.append(y)
+            elif direction == Direction.DOWN:
+                y = y - SIZE
+                if y < 0:
+                    y = y + SIZE
+                    x=x+SIZE
+                    if x < 0:
+                        x = x -2*SIZE
+                        direction = Direction.RIGHT
+                    else:
+                        direction = Direction.LEFT
+                self.x.append(x)
+                self.y.append(y)
 
     def increase_length(self):
         self.length+=1
@@ -200,8 +266,9 @@ class Snake:
         self.y.append(-1)
 
     def draw(self):
-        for i in range(self.length):
-            self.parent_screen.blit(self.block,(self.x[i],self.y[i]))
+        pygame.draw.rect(self.parent_screen, DARK_BLUE, (self.x[0], self.y[0], SIZE, SIZE))
+        for i in range(1,self.length):
+            pygame.draw.rect(self.parent_screen, BLUE, (self.x[i], self.y[i], SIZE, SIZE))
 
     def move(self, action):
         # [straight, right, left]
@@ -232,25 +299,21 @@ class Snake:
             self.x[0] += SIZE
         if self.direction == Direction.LEFT:
             self.x[0] -= SIZE
-        self.draw()
 
 class Apple:
-    def __init__(self, parent_screen):
-        self.image = pygame.image.load("resources/apple.jpg").convert()
+    def __init__(self, parent_screen, snake):
         self.parent_screen = parent_screen
-        self.x = random.randint(0,SIZE_SCREEN[0]/SIZE-1)*SIZE
-        self.y = random.randint(0,SIZE_SCREEN[1]/SIZE-1)*SIZE
+        self.x = 0
+        self.y = 0
+        self.move(snake)
 
     def draw(self):
-        self.parent_screen.blit(self.image,(self.x,self.y))
+        pygame.draw.rect(self.parent_screen, RED, (self.x, self.y, SIZE, SIZE))
 
     def move(self,snake):
-        available_place = False
-        while not available_place:
-            available_place = True
+        while True:
+            
             self.x = random.randint(0,SIZE_SCREEN[0]/SIZE-1)*SIZE
             self.y = random.randint(0,SIZE_SCREEN[1]/SIZE-1)*SIZE
-            for i in range(snake.length):
-                if self.x == snake.x[i] and self.y == snake.y[i]:
-                    available_place = False
-        self.draw()
+            if self.x not in snake.x or self.y not in snake.y:
+                break
