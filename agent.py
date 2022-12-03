@@ -25,7 +25,7 @@ class Agent:
         self.discount = 0.9 # discount rate
 
         # Memory
-        self.q_values = np.zeros((2**11,3), dtype=np.float32)
+        self.q_values = np.zeros((2**12,3), dtype=np.float32)
 
         # Others parameters
         self.plot_scores = []
@@ -53,14 +53,64 @@ class Agent:
         dir_u = game.snake.direction == Direction.UP
         dir_d = game.snake.direction == Direction.DOWN
 
-        danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
-        danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
-        danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
-
         food_l = game.food.x < game.head.x  # food left
         food_r = game.food.x > game.head.x  # food right
         food_u = game.food.y < game.head.y  # food up
         food_d = game.food.y > game.head.y  # food down
+
+        dir_cons_l = False
+        dir_cons_r = False
+        dir_cons_u = False
+        dir_cons_d = False
+
+        if dir_l:
+            left = game.DFS(point_l, occurence_test=True)
+            up = game.DFS(point_u, occurence_test=True)
+            down = game.DFS(point_d, occurence_test=True)
+            if left > 75:
+                dir_cons_l = True
+            elif left > up and left > down:
+                dir_cons_l = True
+            elif up > down:
+                dir_cons_u = True
+            else:
+                dir_cons_d = True
+        elif dir_r:
+            right = game.DFS(point_r, occurence_test=True)
+            up = game.DFS(point_u, occurence_test=True)
+            down = game.DFS(point_d, occurence_test=True)
+            if right > 75:
+                dir_cons_r = True
+            elif right > up and right > down:
+                dir_cons_r = True
+            elif up > down:
+                dir_cons_u = True
+            else:
+                dir_cons_d = True
+        elif dir_u:
+            right = game.DFS(point_r, occurence_test=True)
+            left = game.DFS(point_l, occurence_test=True)
+            up = game.DFS(point_u, occurence_test=True)
+            if up > 75:
+                dir_cons_u = True
+            elif up > right and up > left:
+                dir_cons_u = True
+            elif right > left:
+                dir_cons_r = True
+            else:
+                dir_cons_l = True
+        else:
+            right = game.DFS(point_r, occurence_test=True)
+            left = game.DFS(point_l, occurence_test=True)
+            down = game.DFS(point_d, occurence_test=True)
+            if down > 75:
+                dir_cons_d = True
+            elif down > right and down > left:
+                dir_cons_d = True
+            elif right > left:
+                dir_cons_r = True
+            else:
+                dir_cons_l = True
 
         state = [
             #direction
@@ -76,9 +126,10 @@ class Agent:
             food_d,
 
             # Possible direction
-            danger_l,
-            danger_r,
-            danger_s
+            dir_cons_l,
+            dir_cons_r,
+            dir_cons_u,
+            dir_cons_d
             ]
 
         return np.array(state, dtype=int)
