@@ -9,7 +9,7 @@ from numba import cuda
 from pygame.locals import * # input
 
 SIZE = 40
-SPEED = 3
+SPEED = 0.5
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
@@ -36,12 +36,6 @@ class Game:
         self.time = 0
         self.saved_time = 0
         self.reset()
-
-        # if cuda.is_available():
-            # print("cuda is available")
-
-    
-        
 
     def run(self): 
         
@@ -91,122 +85,134 @@ class Game:
         self.apple.draw()
         self.display_score()
 
-        # # BFS
-        # print("------------------------------------------------------")
-        # # start_time = timer()
-        # # right = 0
-        # # left = 0
-        # # up = 0
-        # # down = 0
+        # BFS
+        print("------------------------------------------------------")
+        # start_time = timer()
+        # right = 0
+        # left = 0
+        # up = 0
+        # down = 0
         
-        # # if self.direction != Direction.LEFT:
-        # #     right = self.DFS(Point(self.head.x + SIZE, self.head.y), BLUE, occurence_test=True)
-        # #     print("right : " + str(right))
-        # # if self.direction != Direction.RIGHT:
-        # #     left = self.DFS(Point(self.head.x - SIZE, self.head.y), RED, occurence_test=True)
-        # #     print("left : " + str(left))
-        # # if self.direction != Direction.UP:
-        # #     down = self.DFS(Point(self.head.x, self.head.y + SIZE), GREEN, occurence_test=True)
-        # #     print("down : " + str(down))
-        # # if self.direction != Direction.DOWN:
-        # #     up = self.DFS(Point(self.head.x, self.head.y - SIZE), YELLOW, occurence_test=True)
-        # #     print("up : " + str(up))
+        # if self.direction != Direction.LEFT:
+        #     right = self.DFS(Point(self.head.x + SIZE, self.head.y), BLUE, occurence_test=True)
+        #     print("right : " + str(right))
+        # if self.direction != Direction.RIGHT:
+        #     left = self.DFS(Point(self.head.x - SIZE, self.head.y), RED, occurence_test=True)
+        #     print("left : " + str(left))
+        # if self.direction != Direction.UP:
+        #     down = self.DFS(Point(self.head.x, self.head.y + SIZE), GREEN, occurence_test=True)
+        #     print("down : " + str(down))
+        # if self.direction != Direction.DOWN:
+        #     up = self.DFS(Point(self.head.x, self.head.y - SIZE), YELLOW, occurence_test=True)
+        #     print("up : " + str(up))
 
-        # # print("time : " + str(timer() - start_time))
+        # print("time : " + str(timer() - start_time))
 
 
-        # head = self.head
+        head = self.head
 
-        # point_l = Point(head.x - SIZE, head.y)
-        # point_r = Point(head.x + SIZE, head.y)
-        # point_u = Point(head.x, head.y - SIZE)
-        # point_d = Point(head.x, head.y + SIZE)
+        point_l = Point(head.x - SIZE, head.y)
+        point_r = Point(head.x + SIZE, head.y)
+        point_u = Point(head.x, head.y - SIZE)
+        point_d = Point(head.x, head.y + SIZE)
         
-        # dir_l = self.direction == Direction.LEFT
-        # dir_r = self.direction == Direction.RIGHT
-        # dir_u = self.direction == Direction.UP
-        # dir_d = self.direction == Direction.DOWN
+        dir_l = self.direction == Direction.LEFT
+        dir_r = self.direction == Direction.RIGHT
+        dir_u = self.direction == Direction.UP
+        dir_d = self.direction == Direction.DOWN
 
-        # # danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
-        # # danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
-        # # danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
+        # danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
+        # danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
+        # danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
 
-        # food_l = self.food.x < self.head.x  # food left
-        # food_r = self.food.x > self.head.x  # food right
-        # food_u = self.food.y < self.head.y  # food up
-        # food_d = self.food.y > self.head.y  # food down
+        food_l = self.food.x < self.head.x  # food left
+        food_r = self.food.x > self.head.x  # food right
+        food_u = self.food.y < self.head.y  # food up
+        food_d = self.food.y > self.head.y  # food down
 
-        # dir_cons_l = False
-        # dir_cons_r = False
-        # dir_cons_u = False
-        # dir_cons_d = False
+        dir_cons_l = False
+        dir_cons_r = False
+        dir_cons_u = False
+        dir_cons_d = False
+        print("la direction est : " + str(self.direction))
+        if dir_l:
+            left = game.DFS(point_l, occurence_test=True)
+            up = game.DFS(point_u, occurence_test=True)
+            down = game.DFS(point_d, occurence_test=True)
+            print("left : " + str(left))
+            print("up : " + str(up))
+            print("down : " + str(down))
+            if left > 50:
+                dir_cons_l = True
+            elif left > up and left > down:
+                dir_cons_l = True
+            elif up > down:
+                dir_cons_u = True
+            else:
+                dir_cons_d = True
+        elif dir_r:
+            right = game.DFS(point_r, occurence_test=True)
+            up = game.DFS(point_u, occurence_test=True)
+            down = game.DFS(point_d, occurence_test=True)
+            print("right : " + str(right))
+            print("up : " + str(up))
+            print("down : " + str(down))
+            if right > 50:
+                dir_cons_r = True
+            elif right > up and right > down:
+                dir_cons_r = True
+            elif up > down:
+                dir_cons_u = True
+            else:
+                dir_cons_d = True
+        elif dir_u:
+            right = game.DFS(point_r, occurence_test=True)
+            left = game.DFS(point_l, occurence_test=True)
+            up = game.DFS(point_u, occurence_test=True)
+            print("right : " + str(right))
+            print("left : " + str(left))
+            print("up : " + str(up))
+            if up > 50:
+                dir_cons_u = True
+            elif up > right and up > left:
+                dir_cons_u = True
+            elif right > left:
+                dir_cons_r = True
+            else:
+                dir_cons_l = True
+        else:
+            right = game.DFS(point_r, occurence_test=True)
+            left = game.DFS(point_l, occurence_test=True)
+            down = game.DFS(point_d, occurence_test=True)
+            print("right : " + str(right))
+            print("left : " + str(left))
+            print("down : " + str(down))
+            if down > 50:
+                dir_cons_d = True
+            elif down > right and down > left:
+                dir_cons_d = True
+            elif right > left:
+                dir_cons_r = True
+            else:
+                dir_cons_l = True
+        print("---------------------")
+        if dir_l:
+            print("dir_l")
+        elif dir_r:
+            print("dir_r")
+        elif dir_u:
+            print("dir_u")
+        else:
+            print("dir_d")
 
-        # if dir_l:
-        #     left = game.DFS(point_l, occurence_test=True)
-        #     up = game.DFS(point_u, occurence_test=True)
-        #     down = game.DFS(point_d, occurence_test=True)
-        #     if left > (game.snake.length-1)**2:
-        #         dir_cons_l = True
-        #         print("solution 1")
-        #     elif left > up and left > down:
-        #         dir_cons_l = True
-        #         print("solution 2")
-        #     elif up > down:
-        #         dir_cons_u = True
-        #         print("solution 3")
-        #     else:
-        #         dir_cons_d = True
-        #         print("solution 4")
-        # elif dir_r:
-        #     right = game.DFS(point_r, occurence_test=True)
-        #     up = game.DFS(point_u, occurence_test=True)
-        #     down = game.DFS(point_d, occurence_test=True)
-        #     if right > (game.snake.length-1)**2:
-        #         dir_cons_r = True
-        #         print("solution 1")
-        #     elif right > up and right > down:
-        #         dir_cons_r = True
-        #         print("solution 2")
-        #     elif up > down:
-        #         dir_cons_u = True
-        #         print("solution 3")
-        #     else:
-        #         dir_cons_d = True
-        #         print("solution 4")
-        # elif dir_u:
-        #     right = game.DFS(point_r, occurence_test=True)
-        #     left = game.DFS(point_l, occurence_test=True)
-        #     up = game.DFS(point_u, occurence_test=True)
-        #     if up > (game.snake.length-1)**2:
-        #         dir_cons_u = True
-        #         print("solution 1")
-        #     elif up > right and up > left:
-        #         dir_cons_u = True
-        #         print("solution 2")
-        #     elif right > left:
-        #         dir_cons_r = True
-        #         print("solution 3")
-        #     else:
-        #         dir_cons_l = True
-        #         print("solution 4")
-        # else:
-        #     right = game.DFS(point_r, occurence_test=True)
-        #     left = game.DFS(point_l, occurence_test=True)
-        #     down = game.DFS(point_d, occurence_test=True)
-        #     if down > (game.snake.length-1)**2:
-        #         dir_cons_d = True
-        #         print("solution 1")
-        #     elif down > right and down > left:
-        #         dir_cons_d = True
-        #         print("solution 2")
-        #     elif right > left:
-        #         dir_cons_r = True
-        #         print("solution 3")
-        #     else:
-        #         dir_cons_l = True
-        #         print("solution 4")
-        # print("dir_cons_l : " + str(dir_cons_l), "dir_cons_r : " + str(dir_cons_r), "dir_cons_u : " + str(dir_cons_u), "dir_cons_d : " + str(dir_cons_d))
-
+        if dir_cons_l:
+            print("recommanded left")
+        elif dir_cons_r:
+            print("recommanded right")
+        elif dir_cons_u:
+            print("recommanded up")
+        elif dir_cons_d:
+            print("recommanded down")
 
         pygame.display.flip()
 
@@ -256,12 +262,12 @@ class Game:
         ##  snake colliding with itself
         for i in range(1,self.snake.length):
             if self.collision(head.x, head.y, self.snake.x[i], self.snake.y[i]):
-                print("collision with itself")
+                # print("collision with itself")
                 return True
 
         ##  snake colliding with the boundries of the window
         if not (0 <= head.x < SIZE_SCREEN[0] and 0 <= head.y < SIZE_SCREEN[1]):
-            print("collision with wall")
+            # print("collision with wall")
             return True
 
         return False
@@ -272,7 +278,7 @@ class Game:
 
     def reset(self):
         self.direction = Direction(random.randint(1, 4))
-        self.snake = Snake(self.surface,random.randint(30, 40), self.direction)
+        self.snake = Snake(self.surface,20, self.direction)
         self.snake.draw()
         self.head = Point(self.snake.x[0],self.snake.y[0])
 
@@ -306,6 +312,11 @@ class Game:
         list_states_in_queue=[initial_state]
         list_states_Explored=[]
         iter=0
+        for i in range(1, self.snake.length):
+            if self.snake.x[i] == initial_state.x and self.snake.y[i] == initial_state.y:
+                print("is in snake")
+                return 0
+
 
         while list_states_in_queue:
             current_state=list_states_in_queue.pop(0)
@@ -329,7 +340,7 @@ class Snake:
         self.block = pygame.image.load("resources/block.jpg").convert()
         self.direction = direction
         self.create_random_snake()
-        print("direction : " + str(self.direction))
+        # print("direction : " + str(self.direction))
 
     def create_random_snake(self):
         

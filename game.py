@@ -17,7 +17,7 @@ BLUE = (0, 0, 255)
 DARK_BLUE = (0, 0, 153)
 
 SIZE = 40
-SPEED = 40
+SPEED = 50
 SIZE_SCREEN = (1040, 800) #multiple de 30
 
 class Direction(Enum):
@@ -66,6 +66,15 @@ class GameAI:
         # 3. check if game over
         game_over = False
         reward = 0
+
+        ##  3.0. closer to apple
+        dist_current = np.sqrt((self.snake.x[0] - self.food.x)**2 + (self.snake.y[0] - self.food.y)**2)
+        dist_previous = np.sqrt((self.snake.x[1] - self.food.x)**2 + (self.snake.y[1] - self.food.y)**2)
+        if dist_current < dist_previous:
+            reward = 1
+        else:
+            reward = -1
+
         ##  3.1. snake colliding with apple
         if self.collision(self.snake.x[0], self.snake.y[0], self.apple.x, self.apple.y):
             self.apple.move(self.snake)
@@ -170,24 +179,27 @@ class GameAI:
 
         return list
 
-    # def DFS(self, initial_state, occurence_test=True):
+    def DFS(self, initial_state, occurence_test=True):
 
-    #     list_states_in_queue=[initial_state]
-    #     list_states_Explored=[]
-    #     iter=0
+        list_states_in_queue=[initial_state]
+        list_states_Explored=[]
+        iter=0
+        for i in range(1,self.snake.length):
+            if initial_state.x == self.snake.x[i] and initial_state.y == self.snake.y[i]:
+                return 0
 
-    #     while list_states_in_queue:
-    #         current_state=list_states_in_queue.pop(0)
-    #         list_new_states=self.next_state(current_state)
-    #         for new_state in list_new_states:
-    #             if not occurence_test or new_state not in list_states_Explored:
-    #                 iter+=1
-    #                 if iter > (self.snake.length-1)**2:
-    #                     return iter
-    #                 list_states_in_queue.append(new_state)
-    #                 if occurence_test:
-    #                     list_states_Explored.append(new_state)
-    #     return iter
+        while list_states_in_queue:
+            current_state=list_states_in_queue.pop(0)
+            list_new_states=self.next_state(current_state)
+            for new_state in list_new_states:
+                if not occurence_test or new_state not in list_states_Explored:
+                    iter+=1
+                    if iter > 50:
+                        return iter
+                    list_states_in_queue.append(new_state)
+                    if occurence_test:
+                        list_states_Explored.append(new_state)
+        return iter
 
 class Snake:
     def __init__(self, parent_screen, random_init=False):

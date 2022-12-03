@@ -24,7 +24,7 @@ class Agent:
         self.epsilon = 0 # randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11, 256, 3)
+        self.model = Linear_QNet(12, 256, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
@@ -41,14 +41,86 @@ class Agent:
         dir_u = game.snake.direction == Direction.UP
         dir_d = game.snake.direction == Direction.DOWN
 
-        danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
-        danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
-        danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
+        # danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
+        # danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
+        # danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
 
         food_l = game.food.x < game.head.x  # food left
         food_r = game.food.x > game.head.x  # food right
         food_u = game.food.y < game.head.y  # food up
         food_d = game.food.y > game.head.y  # food down
+
+        dir_cons_l = False
+        dir_cons_r = False
+        dir_cons_u = False
+        dir_cons_d = False
+
+        if dir_l:
+            left = game.DFS(point_l, occurence_test=True)
+            up = game.DFS(point_u, occurence_test=True)
+            down = game.DFS(point_d, occurence_test=True)
+            if left > 50:
+                dir_cons_l = True
+            elif left > up and left > down:
+                dir_cons_l = True
+            elif up > down:
+                dir_cons_u = True
+            else:
+                dir_cons_d = True
+        elif dir_r:
+            right = game.DFS(point_r, occurence_test=True)
+            up = game.DFS(point_u, occurence_test=True)
+            down = game.DFS(point_d, occurence_test=True)
+            if right > 50:
+                dir_cons_r = True
+            elif right > up and right > down:
+                dir_cons_r = True
+            elif up > down:
+                dir_cons_u = True
+            else:
+                dir_cons_d = True
+        elif dir_u:
+            right = game.DFS(point_r, occurence_test=True)
+            left = game.DFS(point_l, occurence_test=True)
+            up = game.DFS(point_u, occurence_test=True)
+            if up > 50:
+                dir_cons_u = True
+            elif up > right and up > left:
+                dir_cons_u = True
+            elif right > left:
+                dir_cons_r = True
+            else:
+                dir_cons_l = True
+        else:
+            right = game.DFS(point_r, occurence_test=True)
+            left = game.DFS(point_l, occurence_test=True)
+            down = game.DFS(point_d, occurence_test=True)
+            if down > 50:
+                dir_cons_d = True
+            elif down > right and down > left:
+                dir_cons_d = True
+            elif right > left:
+                dir_cons_r = True
+            else:
+                dir_cons_l = True
+        # print("---------------------")
+        # if dir_l:
+        #     print("dir_l")
+        # elif dir_r:
+        #     print("dir_r")
+        # elif dir_u:
+        #     print("dir_u")
+        # else:
+        #     print("dir_d")
+
+        # if dir_cons_l:
+        #     print("left")
+        # elif dir_cons_r:
+        #     print("right")
+        # elif dir_cons_u:
+        #     print("up")
+        # elif dir_cons_d:
+        #     print("down")
 
         state = [
             #direction
@@ -63,10 +135,11 @@ class Agent:
             food_u,
             food_d,
 
-            # Length of snake
-            danger_l,
-            danger_r,
-            danger_s
+            # Recommanded direction
+            dir_cons_l,
+            dir_cons_r,
+            dir_cons_u,
+            dir_cons_d
             ]
 
         # print("state: ", state)
@@ -89,11 +162,11 @@ class Agent:
     def train_short_memory(self, state, action, reward, next_state, done):
         self.trainer.train_step(state, action, reward, next_state, done)
 
-    def get_action(self, state):
+    def get_action(self, state, average_score):
         # random moves: tradeoff exploration / exploitation
-        self.epsilon = 80 - self.epoch # 80
+        self.epsilon = 40 - average_score # 80
         final_move = [0,0,0]
-        if random.randint(0, 200) < self.epsilon: # 200
+        if random.randint(0, 100) < self.epsilon: # 200
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
@@ -108,6 +181,7 @@ class Training:
     def __init__(self):
         self.plot_scores = []
         self.plot_mean_scores = []
+        self.mean_10_scores = 0
         self.plot_mean_10_scores = []
         self.plot_train_loss = []
         self.total_score = 0
@@ -123,7 +197,7 @@ class Training:
             state_old = self.agent.get_state(self.game)
 
             # get move
-            final_move = self.agent.get_action(state_old)
+            final_move = self.agent.get_action(state_old, self.mean_10_scores)
 
             # perform move and get new state
             reward, done, score = self.game.play(final_move)
@@ -154,6 +228,7 @@ class Training:
 
                 mean_score = self.total_score / self.agent.epoch
                 mean_10_score = np.mean(self.plot_scores[-10:])
+                self.mean_10_scores = np.ceil(mean_score)
 
                 self.plot_mean_scores.append(mean_score)
                 self.plot_mean_10_scores.append(mean_10_score)
