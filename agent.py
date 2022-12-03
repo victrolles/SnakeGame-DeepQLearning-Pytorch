@@ -28,15 +28,17 @@ class Agent:
         self.q_values = np.zeros((2**11,3), dtype=np.float32)
 
         # Others parameters
-        # self.plot_scores = []
-        # self.plot_mean_scores = []
-        # self.mean_10_scores = 0
-        # self.plot_mean_10_scores = []
-        # self.total_score = 0
-        # self.record = 0
+        self.plot_scores = []
+        self.plot_mean_scores = []
+        self.mean_10_scores = 0
+        self.plot_mean_10_scores = []
+        self.total_score = 0
+        self.record = 0
         self.game = GameAI()
-        # self.plotC = Plot()
-        # self.load_nn()
+        self.plotC = Plot()
+
+        # Load Q values
+        self.load_q_values()
 
     def get_state(self, game):
         head = game.head
@@ -79,7 +81,6 @@ class Agent:
             danger_s
             ]
 
-        print("state: ", state)
         return np.array(state, dtype=int)
 
     def get_action(self, state):
@@ -87,20 +88,27 @@ class Agent:
         final_move = [0,0,0]
 
         if np.random.random() < self.epsilon:
-            print("random")
             move = np.random.randint(3)
             final_move[move] = 1
         else:
-            print("q_values")
-            final_move = np.argmax(self.q_values[state])
+            move = np.argmax(self.q_values[self.stn(state)])
+            final_move[move] = 1
 
-        print("final_move: ", final_move)
         return np.array(final_move, dtype=int)
+
+    def stn(self, state): # state to number
+        number = 0
+        for i in range(len(state)):
+            if state[i]:
+                number += 2**i
+        return number
+
+    def atn(self, action): # action to number
+        return np.argmax(action)
 
     def train(self):
         while True:
             # get old state
-            # print("state_old")
             state_old = self.get_state(self.game)
 
             # get move
@@ -108,57 +116,60 @@ class Agent:
 
             # perform move and get new state
             reward, done, score = self.game.play(final_move)
-            # print("state_new")
+
+            # get new state
             state_new = self.get_state(self.game)
 
-            # train short memory
-            self.q_values[state_old, final_move] = self.q_values[state_old, final_move] + self.lr * (reward + self.discount * np.max(self.q_values[state_new]) - self.q_values[state_old, final_move])
+            # train memory
+            self.q_values[self.stn(state_old), self.atn(final_move)] = self.q_values[self.stn(state_old), self.atn(final_move)] + self.lr * (reward + self.discount * np.max(self.q_values[self.stn(state_new)]) - self.q_values[self.stn(state_old), self.atn(final_move)])
 
             if done:
-                # train long memory, plot result
+                # game over, plot result
                 self.game.reset()
                 self.epoch += 1
 
                 if score > self.record:
                     self.record = score
-                    # self.save()
+                    self.save()
 
                 print('Game', self.epoch, 'Score', score, 'Record:', self.record)
 
                 # information for plotting
-                # self.plot_scores.append(score)
+                self.plot_scores.append(score)
 
-                # self.total_score += score
+                self.total_score += score
 
-                # mean_score = self.total_score / self.epoch
-                # mean_10_score = np.mean(self.plot_scores[-10:])
-                # self.mean_10_scores = np.ceil(mean_score)
+                mean_score = self.total_score / self.epoch
+                mean_10_score = np.mean(self.plot_scores[-10:])
+                self.mean_10_scores = np.ceil(mean_score)
 
-                # self.plot_mean_scores.append(mean_score)
-                # self.plot_mean_10_scores.append(mean_10_score)
+                self.plot_mean_scores.append(mean_score)
+                self.plot_mean_10_scores.append(mean_10_score)
 
-                # self.plotC.update_plot(self.plot_scores, self.plot_mean_scores, self.plot_mean_10_scores)
+                self.plotC.update_plot(self.plot_scores, self.plot_mean_scores, self.plot_mean_10_scores)
 
-    # def save(self):
-    #     torch.save({
-    #         'epoch': self.epoch,
-    #         'plot_scores': self.plot_scores,
-    #         'plot_mean_scores': self.plot_mean_scores,
-    #         'plot_mean_10_scores': self.plot_mean_10_scores,
-    #         'record': self.record,
-    #         'total_score': self.total_score,
-    #         'timer': self.game.time + self.game.saved_time,
-    #     }, 'model/model.pth')
+    def save(self):
+        torch.save({
+            'q_values': self.q_values,
+            'epoch': self.epoch,
+            'plot_scores': self.plot_scores,
+            'plot_mean_scores': self.plot_mean_scores,
+            'plot_mean_10_scores': self.plot_mean_10_scores,
+            'record': self.record,
+            'total_score': self.total_score,
+            'timer': self.game.time + self.game.saved_time,
+        }, 'model/model.pth')
 
-    # def load_nn(self):
-    #     checkpoint = torch.load('model/model.pth')
-    #     self.epoch = checkpoint['epoch']
-    #     self.plot_scores = checkpoint['plot_scores']
-    #     self.plot_mean_scores = checkpoint['plot_mean_scores']
-    #     self.plot_mean_10_scores = checkpoint['plot_mean_10_scores']
-    #     self.record = checkpoint['record']
-    #     self.total_score = checkpoint['total_score']
-    #     self.game.saved_time = checkpoint['timer']
+    def load_q_values(self):
+        checkpoint = torch.load('model/model.pth')
+        self.q_values = checkpoint['q_values']
+        self.epoch = checkpoint['epoch']
+        self.plot_scores = checkpoint['plot_scores']
+        self.plot_mean_scores = checkpoint['plot_mean_scores']
+        self.plot_mean_10_scores = checkpoint['plot_mean_10_scores']
+        self.record = checkpoint['record']
+        self.total_score = checkpoint['total_score']
+        self.game.saved_time = checkpoint['timer']
 
 if __name__ == '__main__':
     agent = Agent()

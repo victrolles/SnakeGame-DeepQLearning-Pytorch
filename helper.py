@@ -5,7 +5,7 @@ class Plot:
     def __init__(self):
         plt.ion()
 
-        self.fig, (self.ax1, self.ax2) = plt.subplots(1,2, figsize=(14,6))
+        self.fig, self.ax1 = plt.subplots(1, figsize=(8,6)) #(self.ax1, self.ax2)
         self.fig.suptitle('Learning Curves : Training')
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
@@ -20,7 +20,7 @@ class Plot:
         self.ax1.plot(scores)
         self.ax1.plot(mean_scores)
         self.ax1.plot(mean_10_scores)
-        self.ax2.set_ylim(ymin=0)
+        self.ax1.set_ylim(ymin=0)
         self.ax1.text(len(scores)-1, scores[-1], str(scores[-1]))
         self.ax1.text(len(mean_scores)-1, mean_scores[-1], str(mean_scores[-1]))
         self.ax1.text(len(mean_10_scores)-1, mean_10_scores[-1], str(mean_10_scores[-1]))
@@ -28,14 +28,14 @@ class Plot:
         
         
         
-        self.ax2.clear()
-        self.ax2.set_title('Loss :')
-        self.ax2.set_xlabel('Number of Games')
-        self.ax2.set_ylabel('loss')
+        # self.ax2.clear()
+        # self.ax2.set_title('Loss :')
+        # self.ax2.set_xlabel('Number of Games')
+        # self.ax2.set_ylabel('loss')
         # self.ax2.plot(train_loss)
-        self.ax2.set_ylim(ymin=0)
+        # self.ax2.set_ylim(ymin=0)
         # self.ax2.text(len(train_loss)-1, train_loss[-1], str(train_loss[-1]))
-        self.ax2.legend(['train_loss'])
+        # self.ax2.legend(['train_loss'])
         
         
         self.fig.canvas.draw()
