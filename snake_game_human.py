@@ -37,12 +37,6 @@ class Game:
         self.saved_time = 0
         self.reset()
 
-        if cuda.is_available():
-            print("cuda is available")
-
-    
-        
-
     def run(self): 
         
         while True:
@@ -141,72 +135,104 @@ class Game:
         dir_cons_u = False
         dir_cons_d = False
 
+        # left = game.DFS(point_l, occurence_test=True)
+        # right = game.DFS(point_r, occurence_test=True)
+        # up = game.DFS(point_u, occurence_test=True)
+        # down = game.DFS(point_d, occurence_test=True)
+
+        # print("left : " + str(left))
+        # print("right : " + str(right))
+        # print("up : " + str(up))
+        # print("down : " + str(down))
+
+        # if left == max(left, right, up, down):
+        #     dir_cons_l = True
+        # if right == max(left, right, up, down):
+        #     dir_cons_r = True
+        # if up == max(left, right, up, down):
+        #     dir_cons_u = True
+        # if down == max(left, right, up, down):
+        #     dir_cons_d = True
+
+        print("la direction est : " + str(self.direction))
         if dir_l:
             left = game.DFS(point_l, occurence_test=True)
             up = game.DFS(point_u, occurence_test=True)
             down = game.DFS(point_d, occurence_test=True)
-            if left > (game.snake.length-1)**2:
+            # print("left : " + str(left))
+            # print("up : " + str(up))
+            # print("down : " + str(down))
+            if left > 50:
                 dir_cons_l = True
-                print("solution 1")
             elif left > up and left > down:
                 dir_cons_l = True
-                print("solution 2")
             elif up > down:
                 dir_cons_u = True
-                print("solution 3")
             else:
                 dir_cons_d = True
-                print("solution 4")
         elif dir_r:
             right = game.DFS(point_r, occurence_test=True)
             up = game.DFS(point_u, occurence_test=True)
             down = game.DFS(point_d, occurence_test=True)
-            if right > (game.snake.length-1)**2:
+            # print("right : " + str(right))
+            # print("up : " + str(up))
+            # print("down : " + str(down))
+            if right > 50:
                 dir_cons_r = True
-                print("solution 1")
             elif right > up and right > down:
                 dir_cons_r = True
-                print("solution 2")
             elif up > down:
                 dir_cons_u = True
-                print("solution 3")
             else:
                 dir_cons_d = True
-                print("solution 4")
         elif dir_u:
             right = game.DFS(point_r, occurence_test=True)
             left = game.DFS(point_l, occurence_test=True)
             up = game.DFS(point_u, occurence_test=True)
-            if up > (game.snake.length-1)**2:
+            # print("right : " + str(right))
+            # print("left : " + str(left))
+            # print("up : " + str(up))
+            if up > 50:
                 dir_cons_u = True
-                print("solution 1")
             elif up > right and up > left:
                 dir_cons_u = True
-                print("solution 2")
             elif right > left:
                 dir_cons_r = True
-                print("solution 3")
             else:
                 dir_cons_l = True
-                print("solution 4")
         else:
             right = game.DFS(point_r, occurence_test=True)
             left = game.DFS(point_l, occurence_test=True)
             down = game.DFS(point_d, occurence_test=True)
-            if down > (game.snake.length-1)**2:
+            # print("right : " + str(right))
+            # print("left : " + str(left))
+            # print("down : " + str(down))
+            if down > 50:
                 dir_cons_d = True
-                print("solution 1")
             elif down > right and down > left:
                 dir_cons_d = True
-                print("solution 2")
-            elif right > left:
-                dir_cons_r = True
-                print("solution 3")
-            else:
+            elif left > right:
                 dir_cons_l = True
-                print("solution 4")
-        print("dir_cons_l : " + str(dir_cons_l), "dir_cons_r : " + str(dir_cons_r), "dir_cons_u : " + str(dir_cons_u), "dir_cons_d : " + str(dir_cons_d))
+            else:
+                dir_cons_r = True
+        print("---------------------")
+        if dir_l:
+            print("dir_l")
+        elif dir_r:
+            print("dir_r")
+        elif dir_u:
+            print("dir_u")
+        else:
+            print("dir_d")
 
+        if dir_cons_l:
+            print("recommanded left")
+        if dir_cons_r:
+            print("recommanded right")
+        if dir_cons_u:
+            print("recommanded up")
+        if dir_cons_d:
+            print("recommanded down")
 
         pygame.display.flip()
 
@@ -256,10 +282,12 @@ class Game:
         ##  snake colliding with itself
         for i in range(1,self.snake.length):
             if self.collision(head.x, head.y, self.snake.x[i], self.snake.y[i]):
+                # print("collision with itself")
                 return True
 
         ##  snake colliding with the boundries of the window
         if not (0 <= head.x < SIZE_SCREEN[0] and 0 <= head.y < SIZE_SCREEN[1]):
+            # print("collision with wall")
             return True
 
         return False
@@ -269,8 +297,8 @@ class Game:
         self.surface.blit(bg, (0,0))
 
     def reset(self):
-        self.direction = Direction.DOWN
-        self.snake = Snake(self.surface,2, self.direction)
+        self.direction = Direction(random.randint(1, 4))
+        self.snake = Snake(self.surface,30, self.direction)
         self.snake.draw()
         self.head = Point(self.snake.x[0],self.snake.y[0])
 
@@ -304,6 +332,11 @@ class Game:
         list_states_in_queue=[initial_state]
         list_states_Explored=[]
         iter=0
+        for i in range(1, self.snake.length):
+            if self.snake.x[i] == initial_state.x and self.snake.y[i] == initial_state.y:
+                print("is in snake")
+                return 0
+
 
         while list_states_in_queue:
             current_state=list_states_in_queue.pop(0)
@@ -312,7 +345,7 @@ class Game:
                 # self.draw_square(color, (new_state.x, new_state.y))
                 if not occurence_test or new_state not in list_states_Explored:
                     iter+=1
-                    if iter > (self.snake.length-1)**2:
+                    if iter > 50:
                         return iter
                     list_states_in_queue.append(new_state)
                     if occurence_test:
@@ -325,9 +358,171 @@ class Snake:
         self.parent_screen = parent_screen
         self.length = length
         self.block = pygame.image.load("resources/block.jpg").convert()
-        self.x = [SIZE_SCREEN[0] / 2]*length
-        self.y = [SIZE_SCREEN[1] / 2]*length
         self.direction = direction
+        self.create_random_snake()
+        # print("direction : " + str(self.direction))
+
+    def create_random_snake(self):
+        
+        # self.length = random.randint(10, 20)
+        # self.direction = Direction.DOWN
+        # self.length = 5
+        x = random.randint(0, SIZE_SCREEN[0] / SIZE - 1) * SIZE
+        y = random.randint(0, SIZE_SCREEN[1] / SIZE - 1) * SIZE
+        self.x = [x]
+        self.y = [y]
+        # print("------------------------------------------")
+        # print("head : " + str(x) + " " + str(y))
+        print("direction : " + str(self.direction))
+        print("length : " + str(self.length))
+        print("------------------------------------------")
+        direction = self.direction
+        for i in range(1, self.length):
+            if direction == Direction.RIGHT:
+                x = x - SIZE
+                if x < 0:
+                    x = x + SIZE
+                    y=y-SIZE
+                    if y < 0:
+                        y = y +2*SIZE
+                        direction = Direction.UP
+                    else:
+                        direction = Direction.DOWN
+                self.x.append(x)
+                self.y.append(y)
+            elif direction == Direction.LEFT:
+                x = x + SIZE
+                if x > SIZE_SCREEN[0]-SIZE:
+                    x = x - SIZE
+                    y=y+SIZE
+                    if y < 0:
+                        y = y -2*SIZE
+                        direction = Direction.DOWN
+                    else:
+                        direction = Direction.UP
+                self.x.append(x)
+                self.y.append(y)
+            elif direction == Direction.UP:
+                y = y + SIZE
+                if y > SIZE_SCREEN[1]-SIZE:
+                    y = y - SIZE
+                    x=x-SIZE
+                    if x < 0:
+                        x = x +2*SIZE
+                        direction = Direction.LEFT
+                    else:
+                        direction = Direction.RIGHT
+                self.x.append(x)
+                self.y.append(y)
+            elif direction == Direction.DOWN:
+                y = y - SIZE
+                if y < 0:
+                    y = y + SIZE
+                    x=x+SIZE
+                    if x < 0:
+                        x = x -2*SIZE
+                        direction = Direction.RIGHT
+                    else:
+                        direction = Direction.LEFT
+                self.x.append(x)
+                self.y.append(y)
+            
+
+            #     self.x.append(x)
+            #     self.y.append(y)
+            #     direction = Direction.RIGHT
+            # elif direction == Direction.LEFT:
+            #     x = x + SIZE
+            #     self.x.append(x)
+            #     self.y.append(y)
+            #     direction = Direction.LEFT
+            # elif direction == Direction.UP:
+            #     y = y + SIZE
+            #     self.x.append(x)
+            #     self.y.append(y)
+            #     direction = Direction.UP
+            # elif direction == Direction.DOWN:
+            #     y = y - SIZE
+            #     self.x.append(x)
+            #     self.y.append(y)
+            #     direction = Direction.DOWN   
+
+        # if self.direction == Direction.RIGHT:
+        #     x = x - SIZE
+        #     self.x.append(x)
+        #     self.y.append(y)
+        #     direction = Direction.RIGHT
+        # elif self.direction == Direction.LEFT:
+        #     x = x + SIZE
+        #     self.x.append(x)
+        #     self.y.append(y)
+        #     direction = Direction.LEFT
+        # elif self.direction == Direction.UP:
+        #     y = y + SIZE
+        #     self.x.append(x)
+        #     self.y.append(y)
+        #     direction = Direction.UP
+        # elif self.direction == Direction.DOWN:
+        #     y = y - SIZE
+        #     self.x.append(x)
+        #     self.y.append(y)
+        #     direction = Direction.DOWN
+
+        # print("2nd : " + str(x) + " " + str(y))
+        # print("direction : " + str(direction))
+
+        # for i in range(2, self.length):
+        #     saveX=x
+        #     saveY=y
+        #     iter= 0
+        #     leave = False
+        #     while True:
+        #         good = False
+        #         leave = False
+        #         rand = random.randint(1,4)
+        #         # print("rand : " + str(rand))
+        #         iter+=1
+        #         if iter > 20:
+        #             leave = True
+        #             print("leave")
+        #             break
+                    
+        #         x = saveX
+        #         y = saveY
+
+        #         if Direction(rand) == Direction.RIGHT:
+        #             x = x - SIZE
+        #             new_direction = Direction.RIGHT
+        #         elif Direction(rand) == Direction.LEFT:
+        #             x = x + SIZE
+        #             new_direction = Direction.LEFT
+        #         elif Direction(rand) == Direction.UP:
+        #             y = y + SIZE
+        #             new_direction = Direction.UP
+        #         elif Direction(rand) == Direction.DOWN:
+        #             y = y - SIZE
+        #             new_direction = Direction.DOWN
+
+        #         if new_direction != direction:
+        #             # print("ok1")
+        #             if 0 <= x < SIZE_SCREEN[0] and 0 <= y < SIZE_SCREEN[1]:
+        #                 # print("ok2")
+        #                 good = True
+        #                 for j in range(0, len(self.x)):
+        #                     if x == self.x[j] and y == self.y[j]:
+        #                         good = False
+
+        #         if good:
+        #             # print("ok3")
+        #             direction = new_direction   
+        #             self.x.append(x)
+        #             self.y.append(y)
+        #             saveX=x
+        #             saveY=y
+        #             break
+        # if leave:
+        #     self.length = len(self.x)
+
 
     def increase_length(self):
         self.length+=1
