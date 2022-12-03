@@ -11,7 +11,7 @@ class Plot:
         self.fig.canvas.flush_events()
 
         
-    def update_plot(self, scores, mean_scores, mean_10_scores, train_loss):
+    def update_plot(self, scores, mean_scores, mean_10_scores):
         
         self.ax1.clear()
         self.ax1.set_title('Scores :')
@@ -32,9 +32,9 @@ class Plot:
         self.ax2.set_title('Loss :')
         self.ax2.set_xlabel('Number of Games')
         self.ax2.set_ylabel('loss')
-        self.ax2.plot(train_loss)
+        # self.ax2.plot(train_loss)
         self.ax2.set_ylim(ymin=0)
-        self.ax2.text(len(train_loss)-1, train_loss[-1], str(train_loss[-1]))
+        # self.ax2.text(len(train_loss)-1, train_loss[-1], str(train_loss[-1]))
         self.ax2.legend(['train_loss'])
         
         

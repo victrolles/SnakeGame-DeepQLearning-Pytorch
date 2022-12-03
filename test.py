@@ -1,4 +1,5 @@
 import random
+import numpy as np
 
 # def add(a,b):
 #     return a+b, a-b
@@ -15,6 +16,12 @@ import random
 # if a not in list2:
 #     print("a not in list2")
 
-for i in range(20):
-    random_number = random.randint(0,2)
-    print(random_number)
+# for i in range(20):
+#     random_number = random.randint(0,2)
+#     print(random_number)
+
+q_values = np.zeros((3), dtype=int)
+print("q_values.shape = ", q_values)
+
+# for i in range(10):
+#     print(np.random.randint(3))

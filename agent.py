@@ -1,15 +1,13 @@
-import math
 import torch
-import random
 import numpy as np
-from collections import deque
+# from collections import deque
 from game import GameAI, Direction, Point
-from model import Linear_QNet, QTrainer
+# from model import Linear_QNet, QTrainer
 from helper import Plot
 
-MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
-LR = 0.001 #0.001
+# MAX_MEMORY = 100_000
+# BATCH_SIZE = 1000
+# LR = 0.001 #0.001
 SIZE = 40
 
 RED = (255, 0, 0)
@@ -20,13 +18,25 @@ YELLOW = (255, 255, 0)
 class Agent:
 
     def __init__(self):
+        # Learning parameters
         self.epoch = 0
-        self.epsilon = 0 # randomness
-        self.gamma = 0.9 # discount rate
-        self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(11, 256, 3)
-        self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+        self.lr = 0.01
+        self.epsilon = 0.1 # randomness
+        self.discount = 0.9 # discount rate
 
+        # Memory
+        self.q_values = np.zeros((2**11,3), dtype=np.float32)
+
+        # Others parameters
+        # self.plot_scores = []
+        # self.plot_mean_scores = []
+        # self.mean_10_scores = 0
+        # self.plot_mean_10_scores = []
+        # self.total_score = 0
+        # self.record = 0
+        self.game = GameAI()
+        # self.plotC = Plot()
+        # self.load_nn()
 
     def get_state(self, game):
         head = game.head
@@ -69,134 +79,87 @@ class Agent:
             danger_s
             ]
 
-        # print("state: ", state)
+        print("state: ", state)
         return np.array(state, dtype=int)
 
-    def remember(self, state, action, reward, next_state, done):
-        self.memory.append((state, action, reward, next_state, done)) # popleft if MAX_MEMORY is reached
-
-    def train_long_memory(self):
-        if len(self.memory) > BATCH_SIZE:
-            mini_sample = random.sample(self.memory, BATCH_SIZE) # list of tuples
-        else:
-            mini_sample = self.memory
-
-        states, actions, rewards, next_states, dones = zip(*mini_sample)
-        self.trainer.train_step(states, actions, rewards, next_states, dones)
-        #for state, action, reward, nexrt_state, done in mini_sample:
-        #    self.trainer.train_step(state, action, reward, next_state, done)
-
-    def train_short_memory(self, state, action, reward, next_state, done):
-        self.trainer.train_step(state, action, reward, next_state, done)
-
-    def get_action(self, state, average_score):
-        # random moves: tradeoff exploration / exploitation
-        self.epsilon = 80 - self.epoch # 80
+    def get_action(self, state):
+        # Epsilon greedy
         final_move = [0,0,0]
-        if random.randint(0, 200) < self.epsilon: # 200
-            move = random.randint(0, 2)
+
+        if np.random.random() < self.epsilon:
+            print("random")
+            move = np.random.randint(3)
             final_move[move] = 1
         else:
-            state0 = torch.tensor(state, dtype=torch.float)
-            prediction = self.model(state0)
-            move = torch.argmax(prediction).item()
-            final_move[move] = 1
+            print("q_values")
+            final_move = np.argmax(self.q_values[state])
 
-        return final_move
-
-class Training:
-    def __init__(self):
-        self.plot_scores = []
-        self.plot_mean_scores = []
-        self.mean_10_scores = 0
-        self.plot_mean_10_scores = []
-        self.plot_train_loss = []
-        self.total_score = 0
-        self.record = 0
-        self.agent = Agent()
-        self.game = GameAI()
-        self.plotC = Plot()
-        # self.load_nn()
+        print("final_move: ", final_move)
+        return np.array(final_move, dtype=int)
 
     def train(self):
         while True:
             # get old state
             # print("state_old")
-            state_old = self.agent.get_state(self.game)
+            state_old = self.get_state(self.game)
 
             # get move
-            final_move = self.agent.get_action(state_old, self.mean_10_scores)
+            final_move = self.get_action(state_old)
 
             # perform move and get new state
             reward, done, score = self.game.play(final_move)
             # print("state_new")
-            state_new = self.agent.get_state(self.game)
+            state_new = self.get_state(self.game)
 
             # train short memory
-            self.agent.train_short_memory(state_old, final_move, reward, state_new, done)
-
-            # remember
-            self.agent.remember(state_old, final_move, reward, state_new, done)
+            self.q_values[state_old, final_move] = self.q_values[state_old, final_move] + self.lr * (reward + self.discount * np.max(self.q_values[state_new]) - self.q_values[state_old, final_move])
 
             if done:
                 # train long memory, plot result
                 self.game.reset()
-                self.agent.epoch += 1
-                self.agent.train_long_memory()
+                self.epoch += 1
 
                 if score > self.record:
                     self.record = score
-                    self.save()
+                    # self.save()
 
-                print('Game', self.agent.epoch, 'Score', score, 'Record:', self.record)
+                print('Game', self.epoch, 'Score', score, 'Record:', self.record)
 
                 # information for plotting
-                self.plot_scores.append(score)
+                # self.plot_scores.append(score)
 
-                self.total_score += score
+                # self.total_score += score
 
-                mean_score = self.total_score / self.agent.epoch
-                mean_10_score = np.mean(self.plot_scores[-10:])
-                self.mean_10_scores = np.ceil(mean_score)
+                # mean_score = self.total_score / self.epoch
+                # mean_10_score = np.mean(self.plot_scores[-10:])
+                # self.mean_10_scores = np.ceil(mean_score)
 
-                self.plot_mean_scores.append(mean_score)
-                self.plot_mean_10_scores.append(mean_10_score)
+                # self.plot_mean_scores.append(mean_score)
+                # self.plot_mean_10_scores.append(mean_10_score)
 
-                self.plot_train_loss.append(self.agent.trainer.loss.item())
+                # self.plotC.update_plot(self.plot_scores, self.plot_mean_scores, self.plot_mean_10_scores)
 
-                self.plotC.update_plot(self.plot_scores, self.plot_mean_scores, self.plot_mean_10_scores, self.plot_train_loss)
+    # def save(self):
+    #     torch.save({
+    #         'epoch': self.epoch,
+    #         'plot_scores': self.plot_scores,
+    #         'plot_mean_scores': self.plot_mean_scores,
+    #         'plot_mean_10_scores': self.plot_mean_10_scores,
+    #         'record': self.record,
+    #         'total_score': self.total_score,
+    #         'timer': self.game.time + self.game.saved_time,
+    #     }, 'model/model.pth')
 
-    def save(self):
-        torch.save({
-            'epoch': self.agent.epoch,
-            'model_state_dict': self.agent.model.state_dict(),
-            'optimizer_state_dict': self.agent.trainer.optimizer.state_dict(),
-            'loss': self.agent.trainer.loss,
-            'plot_scores': self.plot_scores,
-            'plot_mean_scores': self.plot_mean_scores,
-            'plot_mean_10_scores': self.plot_mean_10_scores,
-            'plot_train_loss': self.plot_train_loss,
-            'record': self.record,
-            'total_score': self.total_score,
-            'timer': self.game.time + self.game.saved_time,
-        }, 'model/model.pth')
-
-    def load_nn(self):
-        checkpoint = torch.load('model/model.pth')
-        self.agent.epoch = checkpoint['epoch']
-        self.agent.model.load_state_dict(checkpoint['model_state_dict'])
-        self.agent.trainer.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.agent.trainer.loss = checkpoint['loss']
-        self.plot_scores = checkpoint['plot_scores']
-        self.plot_mean_scores = checkpoint['plot_mean_scores']
-        self.plot_mean_10_scores = checkpoint['plot_mean_10_scores']
-        self.plot_train_loss = checkpoint['plot_train_loss']
-        self.record = checkpoint['record']
-        self.total_score = checkpoint['total_score']
-        self.game.saved_time = checkpoint['timer']
-        self.agent.model.eval()
-
+    # def load_nn(self):
+    #     checkpoint = torch.load('model/model.pth')
+    #     self.epoch = checkpoint['epoch']
+    #     self.plot_scores = checkpoint['plot_scores']
+    #     self.plot_mean_scores = checkpoint['plot_mean_scores']
+    #     self.plot_mean_10_scores = checkpoint['plot_mean_10_scores']
+    #     self.record = checkpoint['record']
+    #     self.total_score = checkpoint['total_score']
+    #     self.game.saved_time = checkpoint['timer']
 
 if __name__ == '__main__':
-    training = Training()
-    training.train()
+    agent = Agent()
+    agent.train()
