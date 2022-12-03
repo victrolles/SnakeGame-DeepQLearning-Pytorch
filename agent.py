@@ -41,10 +41,6 @@ class Agent:
         dir_u = game.snake.direction == Direction.UP
         dir_d = game.snake.direction == Direction.DOWN
 
-        # danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
-        # danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
-        # danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
-
         food_l = game.food.x < game.head.x  # food left
         food_r = game.food.x > game.head.x  # food right
         food_u = game.food.y < game.head.y  # food up
@@ -54,20 +50,6 @@ class Agent:
         dir_cons_r = False
         dir_cons_u = False
         dir_cons_d = False
-
-        # left = game.DFS(point_l, occurence_test=True)
-        # right = game.DFS(point_r, occurence_test=True)
-        # up = game.DFS(point_u, occurence_test=True)
-        # down = game.DFS(point_d, occurence_test=True)
-
-        # if left != max(left, right, up, down):
-        #     dir_cons_l = True
-        # if right != max(left, right, up, down):
-        #     dir_cons_r = True
-        # if up != max(left, right, up, down):
-        #     dir_cons_u = True
-        # if down != max(left, right, up, down):
-        #     dir_cons_d = True
 
         if dir_l:
             left = game.DFS(point_l, occurence_test=True)
@@ -117,24 +99,6 @@ class Agent:
                 dir_cons_r = True
             else:
                 dir_cons_l = True
-        # print("---------------------")
-        # if dir_l:
-        #     print("dir_l")
-        # elif dir_r:
-        #     print("dir_r")
-        # elif dir_u:
-        #     print("dir_u")
-        # else:
-        #     print("dir_d")
-
-        # if dir_cons_l:
-        #     print("left")
-        # elif dir_cons_r:
-        #     print("right")
-        # elif dir_cons_u:
-        #     print("up")
-        # elif dir_cons_d:
-        #     print("down")
 
         state = [
             #direction
