@@ -17,7 +17,7 @@ BLUE = (0, 0, 255)
 DARK_BLUE = (0, 0, 153)
 
 SIZE = 40
-SPEED = 50
+SPEED = 60
 SIZE_SCREEN = (1040, 800) #multiple de 30
 
 class Direction(Enum):
@@ -37,6 +37,8 @@ class GameAI:
         self.clock = pygame.time.Clock()
         self.time = 0
         self.saved_time = 0
+        self.display = True
+        self.random_init = True
         self.reset()
 
     def play(self, action):
@@ -50,18 +52,32 @@ class GameAI:
                         pygame.quit()
                         quit()
 
+                    if event.key == K_a:
+                        if self.display:
+                            self.display = False
+                        else:
+                            self.display = True
+
+                    if event.key == K_r:
+                        if self.random_init:
+                            self.random_init = False
+                        else:
+                            self.random_init = True
+
                 elif event.type == QUIT:
                     pygame.quit()
                     quit()
 
         # 2. move
-        self.render_background()
-        self.snake.move(action)
-        self.snake.draw()
+        self.snake.move(action)    
         self.head = Point(self.snake.x[0],self.snake.y[0])
-        self.apple.draw()
-        self.display_score()
-        pygame.display.flip()
+        if self.display:
+            self.render_background()
+            self.snake.draw()
+            self.apple.draw()
+            self.display_score()
+            pygame.display.flip()
+        # print("self.snake.direction",self.snake.direction)
 
         # 3. check if game over
         game_over = False
@@ -86,7 +102,7 @@ class GameAI:
         ##  3.2. snake colliding
         if self.is_collision(self.head) or self.frame_iteration > 100*self.snake.length:
             game_over = True
-            reward = -10
+            reward = -100
             return reward, game_over, self.score
 
         ##  3.4. victory
@@ -151,11 +167,13 @@ class GameAI:
         self.surface.fill(BACKGROUND_COLOR)
 
     def reset(self):
-        self.snake = Snake(self.surface,True)
-        self.snake.draw()
+        self.snake = Snake(self.surface,self.random_init)
+        if self.display:
+            self.snake.draw()
         self.food = None
         self.apple = Apple(self.surface, self.snake)
-        self.apple.draw()
+        if self.display:
+            self.apple.draw()
         
         self.score = 0
         self.head = Point(self.snake.x[0],self.snake.y[0])
@@ -324,8 +342,11 @@ class Apple:
 
     def move(self,snake):
         while True:
-            
+            available = True
             self.x = random.randint(0,SIZE_SCREEN[0]/SIZE-1)*SIZE
             self.y = random.randint(0,SIZE_SCREEN[1]/SIZE-1)*SIZE
-            if self.x not in snake.x or self.y not in snake.y:
+            for i in range(snake.length):
+                if self.x == snake.x[i] and self.y == snake.y[i]:
+                    available = False
+            if available:
                 break

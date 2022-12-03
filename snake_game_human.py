@@ -9,7 +9,7 @@ from numba import cuda
 from pygame.locals import * # input
 
 SIZE = 40
-SPEED = 0.5
+SPEED = 1
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
@@ -134,14 +134,34 @@ class Game:
         dir_cons_r = False
         dir_cons_u = False
         dir_cons_d = False
+
+        # left = game.DFS(point_l, occurence_test=True)
+        # right = game.DFS(point_r, occurence_test=True)
+        # up = game.DFS(point_u, occurence_test=True)
+        # down = game.DFS(point_d, occurence_test=True)
+
+        # print("left : " + str(left))
+        # print("right : " + str(right))
+        # print("up : " + str(up))
+        # print("down : " + str(down))
+
+        # if left == max(left, right, up, down):
+        #     dir_cons_l = True
+        # if right == max(left, right, up, down):
+        #     dir_cons_r = True
+        # if up == max(left, right, up, down):
+        #     dir_cons_u = True
+        # if down == max(left, right, up, down):
+        #     dir_cons_d = True
+
         print("la direction est : " + str(self.direction))
         if dir_l:
             left = game.DFS(point_l, occurence_test=True)
             up = game.DFS(point_u, occurence_test=True)
             down = game.DFS(point_d, occurence_test=True)
-            print("left : " + str(left))
-            print("up : " + str(up))
-            print("down : " + str(down))
+            # print("left : " + str(left))
+            # print("up : " + str(up))
+            # print("down : " + str(down))
             if left > 50:
                 dir_cons_l = True
             elif left > up and left > down:
@@ -154,9 +174,9 @@ class Game:
             right = game.DFS(point_r, occurence_test=True)
             up = game.DFS(point_u, occurence_test=True)
             down = game.DFS(point_d, occurence_test=True)
-            print("right : " + str(right))
-            print("up : " + str(up))
-            print("down : " + str(down))
+            # print("right : " + str(right))
+            # print("up : " + str(up))
+            # print("down : " + str(down))
             if right > 50:
                 dir_cons_r = True
             elif right > up and right > down:
@@ -169,9 +189,9 @@ class Game:
             right = game.DFS(point_r, occurence_test=True)
             left = game.DFS(point_l, occurence_test=True)
             up = game.DFS(point_u, occurence_test=True)
-            print("right : " + str(right))
-            print("left : " + str(left))
-            print("up : " + str(up))
+            # print("right : " + str(right))
+            # print("left : " + str(left))
+            # print("up : " + str(up))
             if up > 50:
                 dir_cons_u = True
             elif up > right and up > left:
@@ -184,17 +204,17 @@ class Game:
             right = game.DFS(point_r, occurence_test=True)
             left = game.DFS(point_l, occurence_test=True)
             down = game.DFS(point_d, occurence_test=True)
-            print("right : " + str(right))
-            print("left : " + str(left))
-            print("down : " + str(down))
+            # print("right : " + str(right))
+            # print("left : " + str(left))
+            # print("down : " + str(down))
             if down > 50:
                 dir_cons_d = True
             elif down > right and down > left:
                 dir_cons_d = True
-            elif right > left:
-                dir_cons_r = True
-            else:
+            elif left > right:
                 dir_cons_l = True
+            else:
+                dir_cons_r = True
         print("---------------------")
         if dir_l:
             print("dir_l")
@@ -207,11 +227,11 @@ class Game:
 
         if dir_cons_l:
             print("recommanded left")
-        elif dir_cons_r:
+        if dir_cons_r:
             print("recommanded right")
-        elif dir_cons_u:
+        if dir_cons_u:
             print("recommanded up")
-        elif dir_cons_d:
+        if dir_cons_d:
             print("recommanded down")
 
         pygame.display.flip()
@@ -278,7 +298,7 @@ class Game:
 
     def reset(self):
         self.direction = Direction(random.randint(1, 4))
-        self.snake = Snake(self.surface,20, self.direction)
+        self.snake = Snake(self.surface,30, self.direction)
         self.snake.draw()
         self.head = Point(self.snake.x[0],self.snake.y[0])
 
@@ -325,7 +345,7 @@ class Game:
                 # self.draw_square(color, (new_state.x, new_state.y))
                 if not occurence_test or new_state not in list_states_Explored:
                     iter+=1
-                    if iter > (self.snake.length-1)**2:
+                    if iter > 50:
                         return iter
                     list_states_in_queue.append(new_state)
                     if occurence_test:

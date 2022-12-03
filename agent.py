@@ -55,6 +55,20 @@ class Agent:
         dir_cons_u = False
         dir_cons_d = False
 
+        # left = game.DFS(point_l, occurence_test=True)
+        # right = game.DFS(point_r, occurence_test=True)
+        # up = game.DFS(point_u, occurence_test=True)
+        # down = game.DFS(point_d, occurence_test=True)
+
+        # if left != max(left, right, up, down):
+        #     dir_cons_l = True
+        # if right != max(left, right, up, down):
+        #     dir_cons_r = True
+        # if up != max(left, right, up, down):
+        #     dir_cons_u = True
+        # if down != max(left, right, up, down):
+        #     dir_cons_d = True
+
         if dir_l:
             left = game.DFS(point_l, occurence_test=True)
             up = game.DFS(point_u, occurence_test=True)
@@ -135,7 +149,7 @@ class Agent:
             food_u,
             food_d,
 
-            # Recommanded direction
+            # Possible direction
             dir_cons_l,
             dir_cons_r,
             dir_cons_u,
@@ -164,9 +178,9 @@ class Agent:
 
     def get_action(self, state, average_score):
         # random moves: tradeoff exploration / exploitation
-        self.epsilon = 40 - average_score # 80
+        self.epsilon = 80 - self.epoch # 80
         final_move = [0,0,0]
-        if random.randint(0, 100) < self.epsilon: # 200
+        if random.randint(0, 200) < self.epsilon: # 200
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
@@ -189,11 +203,12 @@ class Training:
         self.agent = Agent()
         self.game = GameAI()
         self.plotC = Plot()
-        # self.load_nn()
+        self.load_nn()
 
     def train(self):
         while True:
             # get old state
+            # print("state_old")
             state_old = self.agent.get_state(self.game)
 
             # get move
@@ -201,6 +216,7 @@ class Training:
 
             # perform move and get new state
             reward, done, score = self.game.play(final_move)
+            # print("state_new")
             state_new = self.agent.get_state(self.game)
 
             # train short memory
