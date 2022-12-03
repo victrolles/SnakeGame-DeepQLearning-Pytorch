@@ -1,13 +1,8 @@
 import torch
 import numpy as np
-# from collections import deque
 from game import GameAI, Direction, Point
-# from model import Linear_QNet, QTrainer
 from helper import Plot
 
-# MAX_MEMORY = 100_000
-# BATCH_SIZE = 1000
-# LR = 0.001 #0.001
 SIZE = 40
 
 RED = (255, 0, 0)
@@ -38,7 +33,7 @@ class Agent:
         self.plotC = Plot()
 
         # Load Q values
-        self.load_q_values()
+        # self.load_q_values()
 
     def get_state(self, game):
         head = game.head
@@ -209,10 +204,10 @@ class Agent:
             'record': self.record,
             'total_score': self.total_score,
             'timer': self.game.time + self.game.saved_time,
-        }, 'model/model.pth')
+        }, 'model/modelv2.pth')
 
     def load_q_values(self):
-        checkpoint = torch.load('model/model.pth')
+        checkpoint = torch.load('model/modelv2.pth')
         self.q_values = checkpoint['q_values']
         self.epoch = checkpoint['epoch']
         self.plot_scores = checkpoint['plot_scores']
