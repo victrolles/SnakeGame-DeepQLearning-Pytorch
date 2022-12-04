@@ -16,7 +16,7 @@ class Agent:
         # Learning parameters
         self.epoch = 0
         self.lr = 0.01
-        self.epsilon = 0.1 # randomness
+        self.epsilon = 0 # randomness 0.1
         self.discount = 0.9 # discount rate
 
         # Memory
@@ -33,7 +33,7 @@ class Agent:
         self.plotC = Plot()
 
         # Load Q values
-        # self.load_q_values()
+        self.load_q_values()
 
     def get_state(self, game):
         head = game.head
@@ -58,54 +58,19 @@ class Agent:
         dir_cons_u = False
         dir_cons_d = False
 
-        if dir_l:
-            left = game.DFS(point_l, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            if left > 75:
-                dir_cons_l = True
-            elif left > up and left > down:
-                dir_cons_l = True
-            elif up > down:
-                dir_cons_u = True
-            else:
-                dir_cons_d = True
-        elif dir_r:
-            right = game.DFS(point_r, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            if right > 75:
-                dir_cons_r = True
-            elif right > up and right > down:
-                dir_cons_r = True
-            elif up > down:
-                dir_cons_u = True
-            else:
-                dir_cons_d = True
-        elif dir_u:
-            right = game.DFS(point_r, occurence_test=True)
-            left = game.DFS(point_l, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            if up > 75:
-                dir_cons_u = True
-            elif up > right and up > left:
-                dir_cons_u = True
-            elif right > left:
-                dir_cons_r = True
-            else:
-                dir_cons_l = True
-        else:
-            right = game.DFS(point_r, occurence_test=True)
-            left = game.DFS(point_l, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            if down > 75:
-                dir_cons_d = True
-            elif down > right and down > left:
-                dir_cons_d = True
-            elif right > left:
-                dir_cons_r = True
-            else:
-                dir_cons_l = True
+        left = game.DFS(point_l, occurence_test=True)
+        right = game.DFS(point_r, occurence_test=True)
+        up = game.DFS(point_u, occurence_test=True)
+        down = game.DFS(point_d, occurence_test=True)
+        maxi = max(left, right, up, down)
+        if left == maxi:
+            dir_cons_l = True
+        if right == maxi:
+            dir_cons_r = True
+        if up == maxi:
+            dir_cons_u = True
+        if down == maxi:
+            dir_cons_d = True
 
         state = [
             #direction
@@ -127,6 +92,7 @@ class Agent:
             dir_cons_d
             ]
 
+        # print("state: ", state)
         return np.array(state, dtype=int)
 
     def get_action(self, state):

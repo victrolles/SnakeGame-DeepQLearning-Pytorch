@@ -192,7 +192,11 @@ class GameAI:
 
         for tempState in tempList:
             if not self.is_collision(tempState):
-                if tempState != self.head:
+                available = True
+                for i in range(self.snake.length):
+                    if tempState.x == self.snake.x[i] and tempState.y == self.snake.y[i]:
+                        available = False
+                if available:
                     list.append(tempState)
 
         return list
@@ -202,18 +206,20 @@ class GameAI:
         list_states_in_queue=[initial_state]
         list_states_Explored=[]
         iter=0
-        for i in range(1,self.snake.length):
+        for i in range(self.snake.length):
             if initial_state.x == self.snake.x[i] and initial_state.y == self.snake.y[i]:
                 return 0
 
         while list_states_in_queue:
+            iter+=1
+            if iter > 100:
+                return iter
             current_state=list_states_in_queue.pop(0)
             list_new_states=self.next_state(current_state)
+            
             for new_state in list_new_states:
                 if not occurence_test or new_state not in list_states_Explored:
-                    iter+=1
-                    if iter > 75:
-                        return iter
+                    
                     list_states_in_queue.append(new_state)
                     if occurence_test:
                         list_states_Explored.append(new_state)
