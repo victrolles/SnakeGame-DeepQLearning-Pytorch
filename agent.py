@@ -132,7 +132,7 @@ class Training:
         self.agent = Agent()
         self.game = GameAI()
         self.plotC = Plot()
-        # self.load_nn()
+        self.load_nn()
 
     def train(self):
         while True:
@@ -198,7 +198,7 @@ class Training:
         }, 'model/model.pth')
 
     def load_nn(self):
-        checkpoint = torch.load('model/model.pth')
+        checkpoint = torch.load('model/bestmodel.pth')
         self.agent.epoch = checkpoint['epoch']
         self.agent.model.load_state_dict(checkpoint['model_state_dict'])
         self.agent.trainer.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
