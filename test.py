@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import math
 
 # def add(a,b):
 #     return a+b, a-b
@@ -20,8 +21,13 @@ import numpy as np
 #     random_number = random.randint(0,2)
 #     print(random_number)
 
-q_values = np.zeros((3), dtype=int)
-print("q_values.shape = ", q_values)
+# q_values = np.zeros((3), dtype=int)
+# print("q_values.shape = ", q_values)
 
 # for i in range(10):
 #     print(np.random.randint(3))
+
+# list = [1,2,3,3,2,1]
+# print("argmax = ", np.argmax(list))
+
+print(math.dist([0,0], [1040,800]))

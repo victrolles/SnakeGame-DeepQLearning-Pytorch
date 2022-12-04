@@ -4,7 +4,6 @@ from enum import Enum
 import numpy as np
 from collections import namedtuple
 
-from datetime import datetime
 from pygame.locals import * # input
 
 pygame.init()
@@ -15,9 +14,13 @@ PINK = (255, 0, 255)
 DARK_PINK = (102, 0, 102)
 BLUE = (0, 0, 255)
 DARK_BLUE = (0, 0, 153)
+GREEN = (0, 255, 0)
+YELLOW = (255, 255, 0)
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
 
 SIZE = 40
-SPEED = 60
+SPEED = 100
 SIZE_SCREEN = (1040, 800) #multiple de 30
 
 class Direction(Enum):
@@ -38,12 +41,23 @@ class GameAI:
         self.time = 0
         self.saved_time = 0
         self.display = True
-        self.random_init = True
+        self.random_init = False
+        self.game_over = False
         self.reset()
 
-    def play(self, action):
-        self.frame_iteration +=1
+    def run(self):
+        # game loop
+        while True:
+            action = self.get_action()
+            self.play(action)
+            if self.game_over:
+                self.display = False
+                print("Score: ", self.score)
+                print("Time: ", self.time)
+                self.reset()
+                break
 
+    def play(self, action):
         # 1. collect user input
         for event in pygame.event.get():
                 if event.type == KEYDOWN:
@@ -76,20 +90,11 @@ class GameAI:
             self.snake.draw()
             self.apple.draw()
             self.display_score()
-            pygame.display.flip()
-        # print("self.snake.direction",self.snake.direction)
+            if not self.game_over:
+                pygame.display.flip()
 
         # 3. check if game over
-        game_over = False
-        reward = 0
-
-        ##  3.0. closer to apple
-        dist_current = np.sqrt((self.snake.x[0] - self.food.x)**2 + (self.snake.y[0] - self.food.y)**2)
-        dist_previous = np.sqrt((self.snake.x[1] - self.food.x)**2 + (self.snake.y[1] - self.food.y)**2)
-        if dist_current < dist_previous:
-            reward = 1
-        else:
-            reward = -1
+        self.game_over = False
 
         ##  3.1. snake colliding with apple
         if self.collision(self.snake.x[0], self.snake.y[0], self.apple.x, self.apple.y):
@@ -97,24 +102,63 @@ class GameAI:
             self.food = Point(self.apple.x,self.apple.y)
             self.snake.increase_length()
             self.score +=1
-            reward = 10
 
         ##  3.2. snake colliding
-        if self.is_collision(self.head) or self.frame_iteration > 100*self.snake.length:
-            game_over = True
-            reward = -100
-            return reward, game_over, self.score
+        if self.is_collision(self.head):
+            print("loose")
+            self.game_over = True
 
         ##  3.4. victory
         if self.snake.length == int((SIZE_SCREEN[0]*SIZE_SCREEN[1])/(SIZE*SIZE)):
             print("win")
-            game_over = True
-            reward = 10
-            return reward, game_over, self.score
+            self.game_over = True
 
         self.clock.tick(SPEED)
 
-        return reward, game_over, self.score
+    def get_action(self):
+        point_l = Point(self.head.x - SIZE, self.head.y)
+        point_r = Point(self.head.x + SIZE, self.head.y)
+        point_u = Point(self.head.x, self.head.y - SIZE)
+        point_d = Point(self.head.x, self.head.y + SIZE)
+
+        left = game.DFS(point_l, occurence_test=True)
+        right = game.DFS(point_r, occurence_test=True)
+        up = game.DFS(point_u, occurence_test=True)
+        down = game.DFS(point_d, occurence_test=True)
+        maxi = max(left, right, up, down)
+        # print("left: ", left, "right: ", right, "up: ", up, "down: ", down)
+        if 1 < left < maxi:
+            print("max left", left)
+        if 1 < right < maxi:
+            print("max right", right)
+        if 1 < up < maxi:
+            print("max up", up)
+        if 1 < down < maxi:
+            print("max down", down)
+
+        if left == maxi:
+            left = 1
+        else:
+            left = 0
+        if right == maxi:
+            right = 1
+        else:
+            right = 0
+        if up == maxi:
+            up = 1
+        else:
+            up = 0
+        if down == maxi:
+            down = 1
+        else:
+            down = 0
+
+        dist_l = 1313 - np.sqrt((point_l.x - self.food.x)**2 + (point_l.y - self.food.y)**2)
+        dist_r = 1313 - np.sqrt((point_r.x - self.food.x)**2 + (point_r.y - self.food.y)**2)
+        dist_u = 1313 - np.sqrt((point_u.x - self.food.x)**2 + (point_u.y - self.food.y)**2)
+        dist_d = 1313 - np.sqrt((point_d.x - self.food.x)**2 + (point_d.y - self.food.y)**2)
+
+        return np.argmax([left*dist_l, right*dist_r, up*dist_u, down*dist_d])
 
     def display_score(self):
         self.time = int((pygame.time.get_ticks())/1000)
@@ -179,6 +223,7 @@ class GameAI:
         self.head = Point(self.snake.x[0],self.snake.y[0])
         self.food = Point(self.apple.x,self.apple.y)
         self.frame_iteration = 0
+        # self.game_over = False
         
 
     def next_state(self, state):
@@ -192,7 +237,11 @@ class GameAI:
 
         for tempState in tempList:
             if not self.is_collision(tempState):
-                if tempState != self.head:
+                available = True
+                for i in range(self.snake.length):
+                    if tempState.x == self.snake.x[i] and tempState.y == self.snake.y[i]:
+                        available = False
+                if available:
                     list.append(tempState)
 
         return list
@@ -202,18 +251,19 @@ class GameAI:
         list_states_in_queue=[initial_state]
         list_states_Explored=[]
         iter=0
-        for i in range(1,self.snake.length):
+        for i in range(0,self.snake.length):
             if initial_state.x == self.snake.x[i] and initial_state.y == self.snake.y[i]:
                 return 0
 
         while list_states_in_queue:
+            iter+=1
+            if iter > 200:
+                return iter
             current_state=list_states_in_queue.pop(0)
             list_new_states=self.next_state(current_state)
             for new_state in list_new_states:
                 if not occurence_test or new_state not in list_states_Explored:
-                    iter+=1
-                    if iter > 75:
-                        return iter
+                    
                     list_states_in_queue.append(new_state)
                     if occurence_test:
                         list_states_Explored.append(new_state)
@@ -301,34 +351,28 @@ class Snake:
             pygame.draw.rect(self.parent_screen, BLUE, (self.x[i], self.y[i], SIZE, SIZE))
 
     def move(self, action):
-        # [straight, right, left]
-
-        clock_wise = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
-        idx = clock_wise.index(self.direction)
-
-        if np.array_equal(action, [1, 0, 0]):
-            new_dir = clock_wise[idx] # no change
-        elif np.array_equal(action, [0, 1, 0]):
-            next_idx = (idx + 1) % 4
-            new_dir = clock_wise[next_idx] # right turn r -> d -> l -> u
-        else: # [0, 0, 1]
-            next_idx = (idx - 1) % 4
-            new_dir = clock_wise[next_idx] # left turn r -> u -> l -> d
-
-        self.direction = new_dir
+        # [left, right, up, down]
 
         for i in range(self.length-1,0,-1):
             self.x[i] = self.x[i-1]
             self.y[i] = self.y[i-1]
 
-        if self.direction == Direction.UP:
-            self.y[0] -= SIZE
-        if self.direction == Direction.DOWN:
-            self.y[0] += SIZE
-        if self.direction == Direction.RIGHT:
-            self.x[0] += SIZE
-        if self.direction == Direction.LEFT:
+        if action == 0:
             self.x[0] -= SIZE
+            self.direction = Direction.LEFT
+            # print("left")
+        elif action == 1:
+            self.x[0] += SIZE
+            self.direction = Direction.RIGHT
+            # print("right")
+        elif action == 2:
+            self.y[0] -= SIZE
+            self.direction = Direction.UP
+            # print("up")
+        elif action == 3:
+            self.y[0] += SIZE
+            self.direction = Direction.DOWN
+            # print("down")
 
 class Apple:
     def __init__(self, parent_screen, snake):
@@ -350,3 +394,7 @@ class Apple:
                     available = False
             if available:
                 break
+
+if __name__ == '__main__':
+    game = GameAI()
+    game.run()
