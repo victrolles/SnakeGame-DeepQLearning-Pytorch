@@ -132,7 +132,7 @@ class Training:
         self.agent = Agent()
         self.game = GameAI()
         self.plotC = Plot()
-        self.load_nn()
+        # self.load_nn()
 
     def train(self):
         while True:
@@ -162,7 +162,7 @@ class Training:
 
                 if score > self.record:
                     self.record = score
-                    self.save()
+                    # self.save()
 
                 print('Game', self.agent.epoch, 'Score', score, 'Record:', self.record)
 
