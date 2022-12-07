@@ -12,11 +12,6 @@ BATCH_SIZE = 1000
 LR = 0.001 #0.001
 SIZE = 40
 
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
-GREEN = (0, 255, 0)
-YELLOW = (255, 255, 0)
-
 class Agent:
 
     def __init__(self):
@@ -116,7 +111,7 @@ class Training:
         self.agent = Agent()
         self.game = GameAI()
         self.plotC = Plot()
-        # self.load_nn()
+        self.load_nn()
 
     def train(self):
         while True:
