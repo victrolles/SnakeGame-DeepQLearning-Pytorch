@@ -24,69 +24,15 @@ class Agent:
         self.epsilon = 0 # randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(12, 256, 3)
+        self.model = Linear_QNet(36, 256, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
 
 
     def get_state(self, game):
-        head = game.head
-
-        point_l = Point(head.x - SIZE, head.y)
-        point_r = Point(head.x + SIZE, head.y)
-        point_u = Point(head.x, head.y - SIZE)
-        point_d = Point(head.x, head.y + SIZE)
         
-        dir_l = game.snake.direction == Direction.LEFT
-        dir_r = game.snake.direction == Direction.RIGHT
-        dir_u = game.snake.direction == Direction.UP
-        dir_d = game.snake.direction == Direction.DOWN
+        state = game.StateGrid()
 
-        food_l = game.food.x < game.head.x  # food left
-        food_r = game.food.x > game.head.x  # food right
-        food_u = game.food.y < game.head.y  # food up
-        food_d = game.food.y > game.head.y  # food down
-
-        dir_cons_l = False
-        dir_cons_r = False
-        dir_cons_u = False
-        dir_cons_d = False
-
-        left = game.DFS(point_l, occurence_test=True)
-        right = game.DFS(point_r, occurence_test=True)
-        up = game.DFS(point_u, occurence_test=True)
-        down = game.DFS(point_d, occurence_test=True)
-        maxi = max(left, right, up, down)
-        if left == maxi:
-            dir_cons_l = True
-        if right == maxi:
-            dir_cons_r = True
-        if up == maxi:
-            dir_cons_u = True
-        if down == maxi:
-            dir_cons_d = True
-
-        state = [
-            #direction
-            dir_l,
-            dir_r,
-            dir_u,
-            dir_d,
-
-            # Food location 
-            food_l,
-            food_r,
-            food_u,
-            food_d,
-
-            # Possible direction
-            dir_cons_l,
-            dir_cons_r,
-            dir_cons_u,
-            dir_cons_d
-            ]
-
-        # print("state: ", state)
-        return np.array(state, dtype=int)
+        return state
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done)) # popleft if MAX_MEMORY is reached
@@ -107,9 +53,13 @@ class Agent:
 
     def get_action(self, state, average_score):
         # random moves: tradeoff exploration / exploitation
-        self.epsilon = 80 - self.epoch # 80
+        # self.epsilon = 80 - self.epoch # 80
         final_move = [0,0,0]
-        if random.randint(0, 200) < self.epsilon: # 200
+        if self.epoch < 200:
+            self.epsilon = 0.2
+        else:
+            self.epsilon = 0
+        if np.random.random() < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
@@ -162,7 +112,7 @@ class Training:
 
                 if score > self.record:
                     self.record = score
-                    # self.save()
+                    self.save()
 
                 print('Game', self.agent.epoch, 'Score', score, 'Record:', self.record)
 
@@ -198,7 +148,7 @@ class Training:
         }, 'model/model.pth')
 
     def load_nn(self):
-        checkpoint = torch.load('model/bestmodel.pth')
+        checkpoint = torch.load('model/model.pth')
         self.agent.epoch = checkpoint['epoch']
         self.agent.model.load_state_dict(checkpoint['model_state_dict'])
         self.agent.trainer.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])

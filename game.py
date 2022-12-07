@@ -18,7 +18,7 @@ DARK_BLUE = (0, 0, 153)
 
 SIZE = 40
 SPEED = 60
-SIZE_SCREEN = (1040, 800) #multiple de 40 : (26, 20)
+SIZE_SCREEN = (240, 240) #multiple de 40 : (26, 20)(1040, 800)
 
 class Direction(Enum):
     RIGHT = 1
@@ -38,7 +38,7 @@ class GameAI:
         self.time = 0
         self.saved_time = 0
         self.display = True
-        self.random_init = True
+        self.random_init = False
         self.reset()
 
     def play(self, action):
@@ -116,6 +116,16 @@ class GameAI:
 
         return reward, game_over, self.score
 
+    def StateGrid(self):
+        grid = np.zeros((SIZE_SCREEN[0]//SIZE,SIZE_SCREEN[1]//SIZE),dtype=int)
+        if 0 <= int(self.snake.x[0]//SIZE) < 6 and 0 <= int(self.snake.y[0]//SIZE) < 6:
+            grid[int(self.snake.x[0]//SIZE),int(self.snake.y[0]//SIZE)] = 2
+        for i in range(1,self.snake.length):
+            grid[int(self.snake.x[i]//SIZE),int(self.snake.y[i]//SIZE)] = 1
+        grid[int(self.apple.x//SIZE),int(self.apple.y//SIZE)] = 3
+        flat_grid = grid.flatten()
+        return flat_grid
+
     def display_score(self):
         self.time = int((pygame.time.get_ticks())/1000)
         new_time = self.time + self.saved_time
@@ -179,49 +189,6 @@ class GameAI:
         self.head = Point(self.snake.x[0],self.snake.y[0])
         self.food = Point(self.apple.x,self.apple.y)
         self.frame_iteration = 0
-        
-
-    def next_state(self, state):
-        list = []
-        tempList = []
-
-        tempList.append(Point(state.x + SIZE, state.y))
-        tempList.append(Point(state.x - SIZE, state.y))
-        tempList.append(Point(state.x, state.y + SIZE))
-        tempList.append(Point(state.x, state.y - SIZE))
-
-        for tempState in tempList:
-            if not self.is_collision(tempState):
-                available = True
-                for i in range(self.snake.length):
-                    if tempState.x == self.snake.x[i] and tempState.y == self.snake.y[i]:
-                        available = False
-                if available:
-                    list.append(tempState)
-
-        return list
-
-    def DFS(self, initial_state, occurence_test=True):
-
-        list_states_in_queue=[initial_state]
-        list_states_Explored=[]
-        iter=0
-        for i in range(0,self.snake.length):
-            if initial_state.x == self.snake.x[i] and initial_state.y == self.snake.y[i]:
-                return 0
-
-        while list_states_in_queue:
-            current_state=list_states_in_queue.pop(0)
-            list_new_states=self.next_state(current_state)
-            iter+=1
-            if iter > 100:
-                return iter
-            for new_state in list_new_states:
-                if not occurence_test or new_state not in list_states_Explored:
-                    list_states_in_queue.append(new_state)
-                    if occurence_test:
-                        list_states_Explored.append(new_state)
-        return iter
 
 class Snake:
     def __init__(self, parent_screen, random_init=False):
