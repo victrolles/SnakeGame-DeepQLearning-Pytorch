@@ -9,7 +9,7 @@ from helper import Plot
 
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
-LR = 0.001 #0.001
+LR = 0.0003 #0.001
 SIZE = 40
 
 RED = (255, 0, 0)
@@ -22,7 +22,7 @@ class Agent:
     def __init__(self):
         self.epoch = 0
         self.epsilon = 0 # randomness
-        self.gamma = 0.9 # discount rate
+        self.gamma = 0.99 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
         self.model = Linear_QNet(36, 256, 3)
         self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
@@ -55,10 +55,10 @@ class Agent:
         # random moves: tradeoff exploration / exploitation
         # self.epsilon = 80 - self.epoch # 80
         final_move = [0,0,0]
-        if self.epoch < 200:
+        if self.epoch < 2000:
             self.epsilon = 0.2
         else:
-            self.epsilon = 0
+            self.epsilon = 0.2
         if np.random.random() < self.epsilon:
             move = random.randint(0, 2)
             final_move[move] = 1
@@ -82,7 +82,7 @@ class Training:
         self.agent = Agent()
         self.game = GameAI()
         self.plotC = Plot()
-        # self.load_nn()
+        self.load_nn()
 
     def train(self):
         while True:
