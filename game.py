@@ -112,7 +112,7 @@ class GameAI:
             reward = 10
             return reward, game_over, self.score
 
-        self.clock.tick(SPEED)
+        # self.clock.tick(SPEED)
 
         return reward, game_over, self.score
 

@@ -1,168 +1,275 @@
-import math
 import torch
-import random
 import numpy as np
-from collections import deque
-from game import GameAI, Direction, Point
-from model import Linear_QNet, QTrainer
-from helper import Plot
+from collections import deque, namedtuple
+from game import GameAI, Direction, Point, SIZE
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
-MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
-LR = 0.0003 #0.001
-SIZE = 40
+HISTORY_SIZE = 1000
+BATCH_SIZE = 32
+REPLAY_START_SIZE = 1000
 
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
-GREEN = (0, 255, 0)
-YELLOW = (255, 255, 0)
+LR = 0.0001
+GAMMA = 0.99
+
+EPSILON_START = 1
+EPSILON_END = 0.01
+EPSILON_DECAY = 0.0001
+
+SYNC_TARGET_EPOCH = 100
+
+Experience = namedtuple('Experience', ('state', 'action', 'reward', 'done', 'next_state'))
+
+class ExperienceBuffer:
+    def __init__(self, capacity):
+        self.buffer = deque(maxlen=capacity)
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def _append(self, experience):
+        self.buffer.append(experience)
+
+    def sample(self, batch_size):
+        indices = np.random.choice(len(self.buffer), batch_size, replace=False)
+        states, actions, rewards, dones, next_states = zip(*[self.buffer[idx] for idx in indices])
+        return np.array(states), np.array(actions), np.array(rewards, dtype=np.float32), np.array(dones, dtype=np.uint8), np.array(next_states)
+
+
+class DQN(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(DQN, self).__init__()
+
+        self.fully_connected_layers = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, output_size)
+        )
+
+    def forward(self, x):
+        return self.fully_connected_layers(x)
+        
+
+class DQN_trainer:
+    def __init__(self, model_network, model_target_network, exp_buffer):
+        self.model_network = model_network
+        self.model_target_network = model_target_network
+        self.exp_buffer = exp_buffer
+        self.optimizer = optim.Adam(self.model_network.parameters(), lr=LR)
+        self.loss = None
+        self.criterion = nn.MSELoss()
+
+    def update_model_network(self):
+        self.optimizer.zero_grad()
+        batch = self.exp_buffer.sample(BATCH_SIZE)
+        states, actions, rewards, dones, next_states = batch
+
+        states = torch.tensor(states, dtype=torch.float)
+        actions = torch.tensor(actions, dtype=torch.float)
+        rewards = torch.tensor(rewards, dtype=torch.float)
+        next_states = torch.tensor(next_states, dtype=torch.float)
+        dones = torch.ByteTensor(dones)
+
+        state_action_values = self.model_network(states).max(1)[0]
+        next_state_values = self.model_target_network(next_states).max(1)[0]
+        next_state_values[dones] = 0.0
+        next_state_values = next_state_values.detach()
+
+        expected_state_action_values = next_state_values * GAMMA + rewards
+        self.loss = self.criterion(state_action_values, expected_state_action_values)
+        self.loss.backward()
+        self.optimizer.step()
+
 
 class Agent:
 
-    def __init__(self):
-        self.epoch = 0
-        self.epsilon = 0 # randomness
-        self.gamma = 0.99 # discount rate
-        self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Linear_QNet(36, 256, 3)
-        self.trainer = QTrainer(self.model, lr=LR, gamma=self.gamma)
+    def __init__(self, exp_buffer):
+        self.exp_buffer = exp_buffer
+        self.env = GameAI()
 
+    def get_state(self):
+        head = self.env.head
 
-    def get_state(self, game):
+        point_l = Point(head.x - SIZE, head.y)
+        point_r = Point(head.x + SIZE, head.y)
+        point_u = Point(head.x, head.y - SIZE)
+        point_d = Point(head.x, head.y + SIZE)
         
-        state = game.StateGrid()
+        dir_l = self.env.snake.direction == Direction.LEFT
+        dir_r = self.env.snake.direction == Direction.RIGHT
+        dir_u = self.env.snake.direction == Direction.UP
+        dir_d = self.env.snake.direction == Direction.DOWN
 
-        return state
+        danger_s = (dir_r and self.env.is_collision(point_r)) or (dir_l and self.env.is_collision(point_l)) or (dir_u and self.env.is_collision(point_u)) or (dir_d and self.env.is_collision(point_d))
+        danger_r = (dir_u and self.env.is_collision(point_r)) or (dir_d and self.env.is_collision(point_l)) or (dir_l and self.env.is_collision(point_u)) or (dir_r and self.env.is_collision(point_d))
+        danger_l = (dir_d and self.env.is_collision(point_r)) or (dir_u and self.env.is_collision(point_l)) or (dir_r and self.env.is_collision(point_u)) or (dir_l and self.env.is_collision(point_d))
 
-    def remember(self, state, action, reward, next_state, done):
-        self.memory.append((state, action, reward, next_state, done)) # popleft if MAX_MEMORY is reached
+        food_l = self.env.food.x < self.env.head.x  # food left
+        food_r = self.env.food.x > self.env.head.x  # food right
+        food_u = self.env.food.y < self.env.head.y  # food up
+        food_d = self.env.food.y > self.env.head.y  # food down
 
-    def train_long_memory(self):
-        if len(self.memory) > BATCH_SIZE:
-            mini_sample = random.sample(self.memory, BATCH_SIZE) # list of tuples
-        else:
-            mini_sample = self.memory
+        state = [
+            #direction
+            dir_l,
+            dir_r,
+            dir_u,
+            dir_d,
 
-        states, actions, rewards, next_states, dones = zip(*mini_sample)
-        self.trainer.train_step(states, actions, rewards, next_states, dones)
-        #for state, action, reward, nexrt_state, done in mini_sample:
-        #    self.trainer.train_step(state, action, reward, next_state, done)
+            # Food location 
+            food_l,
+            food_r,
+            food_u,
+            food_d,
 
-    def train_short_memory(self, state, action, reward, next_state, done):
-        self.trainer.train_step(state, action, reward, next_state, done)
+            # Possible direction
+            danger_l,
+            danger_r,
+            danger_s
+            ]
 
-    def get_action(self, state, average_score):
-        # random moves: tradeoff exploration / exploitation
-        # self.epsilon = 80 - self.epoch # 80
+        # print("state: ", state)
+        return np.array(state, dtype=int)
+
+    def get_action(self, model_network, state, epsilon):
+        # Espilon-Greedy: tradeoff exploration / exploitation
         final_move = [0,0,0]
-        if self.epoch < 2000:
-            self.epsilon = 0.2
-        else:
-            self.epsilon = 0.2
-        if np.random.random() < self.epsilon:
-            move = random.randint(0, 2)
+        if np.random.random() < epsilon:
+            move = np.random.randint(0, 2)
             final_move[move] = 1
         else:
             state0 = torch.tensor(state, dtype=torch.float)
-            prediction = self.model(state0)
+            prediction = model_network(state0)
+            # print("prediction: ", prediction)
             move = torch.argmax(prediction).item()
+            # print("move: ", move)
+            # print("book:", torch.max(prediction).item())
             final_move[move] = 1
 
         return final_move
 
-class Training:
-    def __init__(self):
-        self.plot_scores = []
-        self.plot_mean_scores = []
-        self.mean_10_scores = 0
-        self.plot_mean_10_scores = []
-        self.plot_train_loss = []
-        self.total_score = 0
-        self.record = 0
-        self.agent = Agent()
-        self.game = GameAI()
-        self.plotC = Plot()
-        self.load_nn()
-
-    def train(self):
+    def play_step(self, model_network, epsilon):
+        self.env.reset()
         while True:
-            # get old state
-            # print("state_old")
-            state_old = self.agent.get_state(self.game)
 
-            # get move
-            final_move = self.agent.get_action(state_old, self.mean_10_scores)
+            # 1. Collect experience
+            current_state = self.get_state()
+            action = self.get_action(model_network, current_state, epsilon)
+            reward, done, score = self.env.play(action)
+            next_state = self.get_state()
 
-            # perform move and get new state
-            reward, done, score = self.game.play(final_move)
-            # print("state_new")
-            state_new = self.agent.get_state(self.game)
-
-            # train short memory
-            self.agent.train_short_memory(state_old, final_move, reward, state_new, done)
-
-            # remember
-            self.agent.remember(state_old, final_move, reward, state_new, done)
+            exp = Experience(current_state, action, reward, done, next_state)
+            self.exp_buffer._append(exp)
 
             if done:
-                # train long memory, plot result
-                self.game.reset()
-                self.agent.epoch += 1
-                self.agent.train_long_memory()
+                return score
 
-                if score > self.record:
-                    self.record = score
-                    self.save()
+class Training:
+    def __init__(self):
+        self.exp_buffer = ExperienceBuffer(HISTORY_SIZE)
+        self.agent = Agent(self.exp_buffer)
+        self.model_network = DQN(11, 256, 3)
+        self.model_target_network = DQN(11, 256, 3)
+        self.model_trainer = DQN_trainer(self.model_network, self.model_target_network, self.exp_buffer)
 
-                print('Game', self.agent.epoch, 'Score', score, 'Record:', self.record)
+    def train(self):
+        epoch = 0
+        best_score = 0
+        epsilon = EPSILON_START
+        while True:
+            epoch += 1
+            epsilon = max(EPSILON_END, EPSILON_START - epoch * EPSILON_DECAY)
+            score = self.agent.play_step(self.model_network, epsilon)
+            
+            print('Game', epoch, 'Score', score, 'Record:', best_score)
 
-                # information for plotting
-                self.plot_scores.append(score)
+            if score > best_score:
+                best_score = score
 
-                self.total_score += score
+            if len(self.exp_buffer) < REPLAY_START_SIZE:
+                continue
+            if epoch % SYNC_TARGET_EPOCH == 0:
+                self.model_target_network.load_state_dict(self.model_network.state_dict())
 
-                mean_score = self.total_score / self.agent.epoch
-                mean_10_score = np.mean(self.plot_scores[-10:])
-                self.mean_10_scores = np.ceil(mean_score)
-
-                self.plot_mean_scores.append(mean_score)
-                self.plot_mean_10_scores.append(mean_10_score)
-
-                self.plot_train_loss.append(self.agent.trainer.loss.item())
-
-                self.plotC.update_plot(self.plot_scores, self.plot_mean_scores, self.plot_mean_10_scores, self.plot_train_loss)
-
-    def save(self):
-        torch.save({
-            'epoch': self.agent.epoch,
-            'model_state_dict': self.agent.model.state_dict(),
-            'optimizer_state_dict': self.agent.trainer.optimizer.state_dict(),
-            'loss': self.agent.trainer.loss,
-            'plot_scores': self.plot_scores,
-            'plot_mean_scores': self.plot_mean_scores,
-            'plot_mean_10_scores': self.plot_mean_10_scores,
-            'plot_train_loss': self.plot_train_loss,
-            'record': self.record,
-            'total_score': self.total_score,
-            'timer': self.game.time + self.game.saved_time,
-        }, 'model/model.pth')
-
-    def load_nn(self):
-        checkpoint = torch.load('model/model.pth')
-        self.agent.epoch = checkpoint['epoch']
-        self.agent.model.load_state_dict(checkpoint['model_state_dict'])
-        self.agent.trainer.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        self.agent.trainer.loss = checkpoint['loss']
-        self.plot_scores = checkpoint['plot_scores']
-        self.plot_mean_scores = checkpoint['plot_mean_scores']
-        self.plot_mean_10_scores = checkpoint['plot_mean_10_scores']
-        self.plot_train_loss = checkpoint['plot_train_loss']
-        self.record = checkpoint['record']
-        self.total_score = checkpoint['total_score']
-        self.game.saved_time = checkpoint['timer']
-        self.agent.model.eval()
-
+            self.model_trainer.update_model_network()
 
 if __name__ == '__main__':
     training = Training()
-    training.train()
+    training.train() 
+
+# class Training:
+#     def __init__(self):
+#         self.plot_scores = []
+#         self.plot_mean_scores = []
+#         self.mean_10_scores = 0
+#         self.plot_mean_10_scores = []
+#         self.plot_train_loss = []
+#         self.total_score = 0
+#         self.record = 0
+#         self.agent = Agent()
+#         self.game = GameAI()
+#         self.plotC = Plot()
+#         self.load_nn()
+
+#     def train(self):
+#         while True:
+
+
+#             if done:
+#                 # train long memory, plot result
+#                 self.game.reset()
+#                 self.agent.epoch += 1
+#                 self.agent.train_long_memory()
+
+#                 if score > self.record:
+#                     self.record = score
+#                     self.save()
+
+#                 print('Game', self.agent.epoch, 'Score', score, 'Record:', self.record)
+
+#                 # information for plotting
+#                 self.plot_scores.append(score)
+
+#                 self.total_score += score
+
+#                 mean_score = self.total_score / self.agent.epoch
+#                 mean_10_score = np.mean(self.plot_scores[-10:])
+#                 self.mean_10_scores = np.ceil(mean_score)
+
+#                 self.plot_mean_scores.append(mean_score)
+#                 self.plot_mean_10_scores.append(mean_10_score)
+
+#                 self.plot_train_loss.append(self.agent.trainer.loss.item())
+
+#                 self.plotC.update_plot(self.plot_scores, self.plot_mean_scores, self.plot_mean_10_scores, self.plot_train_loss)
+
+#     def save(self):
+#         torch.save({
+#             'epoch': self.agent.epoch,
+#             'model_state_dict': self.agent.model.state_dict(),
+#             'optimizer_state_dict': self.agent.trainer.optimizer.state_dict(),
+#             'loss': self.agent.trainer.loss,
+#             'plot_scores': self.plot_scores,
+#             'plot_mean_scores': self.plot_mean_scores,
+#             'plot_mean_10_scores': self.plot_mean_10_scores,
+#             'plot_train_loss': self.plot_train_loss,
+#             'record': self.record,
+#             'total_score': self.total_score,
+#             'timer': self.game.time + self.game.saved_time,
+#         }, 'model/model.pth')
+
+#     def load_nn(self):
+#         checkpoint = torch.load('model/model.pth')
+#         self.agent.epoch = checkpoint['epoch']
+#         self.agent.model.load_state_dict(checkpoint['model_state_dict'])
+#         self.agent.trainer.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+#         self.agent.trainer.loss = checkpoint['loss']
+#         self.plot_scores = checkpoint['plot_scores']
+#         self.plot_mean_scores = checkpoint['plot_mean_scores']
+#         self.plot_mean_10_scores = checkpoint['plot_mean_10_scores']
+#         self.plot_train_loss = checkpoint['plot_train_loss']
+#         self.record = checkpoint['record']
+#         self.total_score = checkpoint['total_score']
+#         self.game.saved_time = checkpoint['timer']
+#         self.agent.model.eval()
