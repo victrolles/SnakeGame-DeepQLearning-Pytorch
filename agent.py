@@ -5,17 +5,18 @@ from game import GameAI, Direction, Point, SIZE
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from helper import Plot
 
-HISTORY_SIZE = 1000
-BATCH_SIZE = 32
-REPLAY_START_SIZE = 1000
+HISTORY_SIZE = 100_000
+BATCH_SIZE = 1000
+REPLAY_START_SIZE = 100_000
 
-LR = 0.0001
-GAMMA = 0.99
+LR = 0.001
+GAMMA = 0.9
 
 EPSILON_START = 1
-EPSILON_END = 0.01
-EPSILON_DECAY = 0.0001
+EPSILON_END = 0.05
+EPSILON_DECAY = 0.001
 
 SYNC_TARGET_EPOCH = 100
 
@@ -172,17 +173,25 @@ class Training:
         self.model_network = DQN(11, 256, 3)
         self.model_target_network = DQN(11, 256, 3)
         self.model_trainer = DQN_trainer(self.model_network, self.model_target_network, self.exp_buffer)
+        self.plotC = Plot()
 
     def train(self):
         epoch = 0
         best_score = 0
         epsilon = EPSILON_START
+
+        # information for plotting
+        list_score = []
+
         while True:
             epoch += 1
             epsilon = max(EPSILON_END, EPSILON_START - epoch * EPSILON_DECAY)
             score = self.agent.play_step(self.model_network, epsilon)
+
+            list_score.append(score)
+            self.plotC.update_plot(list_score)
             
-            print('Game', epoch, 'Score', score, 'Record:', best_score)
+            print('Game', epoch, 'Score', score, 'Record:', best_score, 'Epsilon:', epsilon)
 
             if score > best_score:
                 best_score = score
