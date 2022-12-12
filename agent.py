@@ -6,21 +6,23 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from helper import Plot
+import time
 
-HISTORY_SIZE = 100_000
+HISTORY_SIZE = 10_000
 BATCH_SIZE = 1000
-REPLAY_START_SIZE = 100_000
+REPLAY_START_SIZE = 1000
 
-LR = 0.0001
-GAMMA = 0.99
+LR = 0.001
+GAMMA = 0.9
 
 EPSILON_START = 1
-EPSILON_END = 0.01
-EPSILON_DECAY = 0.00005
+EPSILON_END = 0.02
+EPSILON_DECAY = 0.0001
 
 SYNC_TARGET_EPOCH = 1000
 
 LOAD_MODEL = False
+PLOT = False
 
 Experience = namedtuple('Experience', ('state', 'action', 'reward', 'done', 'next_state'))
 
@@ -46,8 +48,6 @@ class DQN(nn.Module):
 
         self.fully_connected_layers = nn.Sequential(
             nn.Linear(input_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size)
         )
@@ -94,7 +94,49 @@ class Agent:
         self.env = GameAI()
 
     def get_state(self):
-        return self.env.state_grid()
+        head = self.env.head
+
+        point_l = Point(head.x - SIZE, head.y)
+        point_r = Point(head.x + SIZE, head.y)
+        point_u = Point(head.x, head.y - SIZE)
+        point_d = Point(head.x, head.y + SIZE)
+        
+        dir_l = self.env.snake.direction == Direction.LEFT
+        dir_r = self.env.snake.direction == Direction.RIGHT
+        dir_u = self.env.snake.direction == Direction.UP
+        dir_d = self.env.snake.direction == Direction.DOWN
+
+        danger_s = (dir_r and self.env.is_collision(point_r)) or (dir_l and self.env.is_collision(point_l)) or (dir_u and self.env.is_collision(point_u)) or (dir_d and self.env.is_collision(point_d))
+        danger_r = (dir_u and self.env.is_collision(point_r)) or (dir_d and self.env.is_collision(point_l)) or (dir_l and self.env.is_collision(point_u)) or (dir_r and self.env.is_collision(point_d))
+        danger_l = (dir_d and self.env.is_collision(point_r)) or (dir_u and self.env.is_collision(point_l)) or (dir_r and self.env.is_collision(point_u)) or (dir_l and self.env.is_collision(point_d))
+
+        food_l = self.env.food.x < self.env.head.x  # food left
+        food_r = self.env.food.x > self.env.head.x  # food right
+        food_u = self.env.food.y < self.env.head.y  # food up
+        food_d = self.env.food.y > self.env.head.y  # food down
+
+        state = [
+            #direction
+            dir_l,
+            dir_r,
+            dir_u,
+            dir_d,
+
+            # Food location 
+            food_l,
+            food_r,
+            food_u,
+            food_d,
+
+            # Possible direction
+            danger_l,
+            danger_r,
+            danger_s
+            ]
+
+        # print("state: ", state)
+        return np.array(state, dtype=int)
+        # return self.env.state_grid()
 
     def get_action(self, model_network, state, epsilon):
         # Espilon-Greedy: tradeoff exploration / exploitation
@@ -133,8 +175,8 @@ class Training:
     def __init__(self):
         self.exp_buffer = ExperienceBuffer(HISTORY_SIZE)
         self.agent = Agent(self.exp_buffer)
-        self.model_network = DQN(128, 512, 3)
-        self.model_target_network = DQN(128, 512, 3)
+        self.model_network = DQN(11, 256, 3) #128, 512, 3
+        self.model_target_network = DQN(11, 256, 3) #128, 512, 3
         self.model_trainer = DQN_trainer(self.model_network, self.model_target_network, self.exp_buffer)
         self.plotC = Plot()
 
@@ -150,7 +192,8 @@ class Training:
             epsilon = max(EPSILON_END, EPSILON_START - self.epoch * EPSILON_DECAY)
             score = self.agent.play_step(self.model_network, epsilon)
 
-            self.plotC.update_lists(score, self.epoch)
+            if PLOT:
+                self.plotC.update_lists(score, self.epoch)
             
             print('Game', self.epoch, 'Score', score, 'Record:', self.best_score, 'Epsilon:', epsilon)
 
@@ -160,7 +203,7 @@ class Training:
 
             if len(self.exp_buffer) < REPLAY_START_SIZE:
                 continue
-
+            
             if self.epoch % SYNC_TARGET_EPOCH == 0:
                 self.model_target_network.load_state_dict(self.model_network.state_dict())
 

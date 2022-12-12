@@ -18,7 +18,7 @@ DARK_BLUE = (0, 0, 153)
 
 SIZE = 40
 SPEED = 0.5
-SIZE_SCREEN = (320, 320) #multiple de 40 : (26, 20)(1040, 800)     (240, 240)
+SIZE_SCREEN = (1040, 800) #multiple de 40 : (26, 20)(1040, 800)     (240, 240) (320, 320)
 
 class Direction(Enum):
     RIGHT = 1
