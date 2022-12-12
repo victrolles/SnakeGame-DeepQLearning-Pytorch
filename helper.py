@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from IPython import display
+import numpy as np
 
 class Plot:
     def __init__(self):
@@ -11,19 +11,37 @@ class Plot:
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
-        
+        self.list_scores = []
+        self.list_mean_scores = []
+        self.list_mean_10_scores = []
+        self.total_score = 0
+        self.epoch = 0
+
+    def update_lists(self, scores, epoch):
+        self.epoch = epoch
+        self.total_score += scores
+
+        self.list_scores.append(scores)
+        self.list_mean_scores.append(self.total_score / self.epoch)
+        self.list_mean_10_scores.append(np.mean(self.list_scores[-10:]))
+
+        self.update_plot()
+
     # def update_plot(self, scores, mean_scores, mean_10_scores, train_loss):
-    def update_plot(self, scores):
+    def update_plot(self):
         
         self.ax1.clear()
         self.ax1.set_title('Scores :')
         self.ax1.set_xlabel('Number of Games')
         self.ax1.set_ylabel('score')
-        self.ax1.plot(scores)
-        # self.ax1.plot(mean_scores)
-        # self.ax1.plot(mean_10_scores)
+        self.ax1.plot(self.list_scores)
+        self.ax1.plot(self.list_mean_scores)
+        self.ax1.plot(self.list_mean_10_scores)
         self.ax1.set_ylim(ymin=0)
-        self.ax1.text(len(scores)-1, scores[-1], str(scores[-1]))
+        self.ax1.text(len(self.list_scores)-1, self.list_scores[-1], str(self.list_scores[-1]))
+        self.ax1.text(len(self.list_mean_scores)-1, self.list_mean_scores[-1], str(self.list_mean_scores[-1]))
+        self.ax1.text(len(self.list_mean_10_scores)-1, self.list_mean_10_scores[-1], str(self.list_mean_10_scores[-1]))
+        self.ax1.legend(['score', 'mean_score', 'tendancy'])
         # self.ax1.text(len(mean_scores)-1, mean_scores[-1], str(mean_scores[-1]))
         # self.ax1.text(len(mean_10_scores)-1, mean_10_scores[-1], str(mean_10_scores[-1]))
         # self.ax1.legend(['score', 'mean_score', 'tendancy'])
@@ -42,50 +60,6 @@ class Plot:
         
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-  
 
-
-
-# def plot(scores, mean_scores):
-#     display.clear_output(wait=True)
-#     display.display(plt.gcf())
-#     plt.clf()
-#     plt.title('Training...')
-#     plt.xlabel('Number of Games')
-#     plt.ylabel('Score')
-#     plt.plot(scores)
-#     plt.plot(mean_scores)
-#     plt.ylim(ymin=0)
-#     plt.text(len(scores)-1, scores[-1], str(scores[-1]))
-#     plt.text(len(mean_scores)-1, mean_scores[-1], str(mean_scores[-1]))
-#     plt.show(block=False)
-#     plt.pause(.1)
-
-# def plot(scores, mean_scores, mean_10_scores, train_loss):
-#     display.clear_output(wait=True)
-#     # display.display(plt.gcf())
-    
-#     fig, (ax1, ax2) = plt.subplots(1,2, figsize=(14,6))
-#     fig.suptitle('Learning Curves : Training')
-#     # plt.clf()
-#     ax1.set_title('Scores :')
-#     ax1.plot(scores)
-#     ax1.plot(mean_scores)
-#     ax1.plot(mean_10_scores)
-#     ax1.text(len(scores)-1, scores[-1], str(scores[-1]))
-#     ax1.text(len(mean_scores)-1, mean_scores[-1], str(mean_scores[-1]))
-#     ax1.text(len(mean_10_scores)-1, mean_10_scores[-1], str(mean_10_scores[-1]))
-#     ax1.set_xlabel('Number of Games')
-#     ax1.set_ylabel('score')
-#     ax1.set_ylim(0)
-#     ax1.legend(['scores', 'mean_scores', 'tendance'])
-    
-#     ax2.set_title('Loss :')
-#     ax2.plot(train_loss)
-#     ax2.text(len(train_loss)-1, train_loss[-1], str(train_loss[-1]))
-#     ax2.set_xlabel('Number of Games')
-#     ax2.set_ylabel('train_loss')
-#     ax2.set_ylim(0)
-#     ax2.legend(['losses'])
     
     

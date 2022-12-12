@@ -17,8 +17,8 @@ BLUE = (0, 0, 255)
 DARK_BLUE = (0, 0, 153)
 
 SIZE = 40
-SPEED = 60
-SIZE_SCREEN = (1040, 800) #multiple de 40 : (26, 20)(1040, 800)     (240, 240)
+SPEED = 0.5
+SIZE_SCREEN = (320, 320) #multiple de 40 : (26, 20)(1040, 800)     (240, 240)
 
 class Direction(Enum):
     RIGHT = 1
@@ -116,14 +116,22 @@ class GameAI:
 
         return reward, game_over, self.score
 
-    def StateGrid(self):
-        grid = np.zeros((SIZE_SCREEN[0]//SIZE,SIZE_SCREEN[1]//SIZE),dtype=int)
-        if 0 <= int(self.snake.x[0]//SIZE) < 6 and 0 <= int(self.snake.y[0]//SIZE) < 6:
-            grid[int(self.snake.x[0]//SIZE),int(self.snake.y[0]//SIZE)] = 2
+    def state_grid(self):
+        grid1 = np.zeros((SIZE_SCREEN[1]//SIZE,SIZE_SCREEN[0]//SIZE),dtype=int)
+        for i in range(self.snake.length):
+            if 0 <= int(self.snake.y[i]//SIZE) < int(SIZE_SCREEN[1]//SIZE) and 0 <= int(self.snake.x[i]//SIZE) < int(SIZE_SCREEN[0]//SIZE):
+                grid1[int(self.snake.y[i]//SIZE),int(self.snake.x[i]//SIZE)] = 1
+        grid1[int(self.apple.y//SIZE),int(self.apple.x//SIZE)] = 2
+        flat_grid1 = grid1.flatten()
+
+        grid2 = np.zeros((SIZE_SCREEN[1]//SIZE,SIZE_SCREEN[0]//SIZE),dtype=int)
         for i in range(1,self.snake.length):
-            grid[int(self.snake.x[i]//SIZE),int(self.snake.y[i]//SIZE)] = 1
-        grid[int(self.apple.x//SIZE),int(self.apple.y//SIZE)] = 3
-        flat_grid = grid.flatten()
+            if 0 <= int(self.snake.y[i]//SIZE) < int(SIZE_SCREEN[1]//SIZE) and 0 <= int(self.snake.x[i]//SIZE) < int(SIZE_SCREEN[0]//SIZE):
+                grid2[int(self.snake.y[i]//SIZE),int(self.snake.x[i]//SIZE)] = 1
+        grid2[int(self.snake.old_y//SIZE),int(self.snake.old_x//SIZE)] = 1
+        grid2[int(self.apple.y//SIZE),int(self.apple.x//SIZE)] = 2
+        flat_grid2 = grid2.flatten()
+        flat_grid = np.concatenate((flat_grid1,flat_grid2))
         return flat_grid
 
     def display_score(self):
@@ -202,6 +210,8 @@ class Snake:
             self.direction = Direction.DOWN
             self.x = [SIZE_SCREEN[0] / 2, SIZE_SCREEN[0] / 2]
             self.y = [SIZE_SCREEN[1] / 2, SIZE_SCREEN[1] / 2 - SIZE]
+        self.old_x = self.x[self.length-1]
+        self.old_y = self.y[self.length-1]
         
 
     def create_random_snake(self):
@@ -287,6 +297,9 @@ class Snake:
             new_dir = clock_wise[next_idx] # left turn r -> u -> l -> d
 
         self.direction = new_dir
+
+        self.old_x = self.x[self.length-1]
+        self.old_y = self.y[self.length-1]
 
         for i in range(self.length-1,0,-1):
             self.x[i] = self.x[i-1]
