@@ -17,8 +17,8 @@ BLUE = (0, 0, 255)
 DARK_BLUE = (0, 0, 153)
 
 SIZE = 40
-SPEED = 0.5
-SIZE_SCREEN = (1040, 800) #multiple de 40 : (26, 20)(1040, 800)     (240, 240) (320, 320)
+SPEED = 30
+SIZE_SCREEN = (320, 320) #multiple de 40 : (26, 20)(1040, 800)     (240, 240) (320, 320)
 
 class Direction(Enum):
     RIGHT = 1
@@ -37,8 +37,13 @@ class GameAI:
         self.clock = pygame.time.Clock()
         self.time = 0
         self.saved_time = 0
-        self.display = True
+
+        self.display = False
         self.random_init = False
+        self.plot = True
+        self.speed = True
+        self.is_epsilon = True
+
         self.reset()
 
     def play(self, action):
@@ -52,7 +57,7 @@ class GameAI:
                         pygame.quit()
                         quit()
 
-                    if event.key == K_a:
+                    if event.key == K_d:
                         if self.display:
                             self.display = False
                         else:
@@ -63,6 +68,24 @@ class GameAI:
                             self.random_init = False
                         else:
                             self.random_init = True
+
+                    if event.key == K_p:
+                        if self.plot:
+                            self.plot = False
+                        else:
+                            self.plot = True
+
+                    if event.key == K_s:
+                        if self.speed:
+                            self.speed = False
+                        else:
+                            self.speed = True
+
+                    if event.key == K_e:
+                        if self.is_epsilon:
+                            self.is_epsilon = False
+                        else:
+                            self.is_epsilon = True
 
                 elif event.type == QUIT:
                     pygame.quit()
@@ -112,7 +135,8 @@ class GameAI:
             reward = 10
             return reward, game_over, self.score
 
-        # self.clock.tick(SPEED)
+        if not self.speed:
+            self.clock.tick(SPEED)
 
         return reward, game_over, self.score
 
