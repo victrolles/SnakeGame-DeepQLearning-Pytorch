@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from collections import deque, namedtuple
-from game import GameAI, Direction, Point, SIZE
+from environments import Environment, Direction, Coordinates, Size_grid, Size_screen
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -96,17 +96,17 @@ class DQN_trainer:
 
 class Agent:
 
-    def __init__(self, exp_buffer):
+    def __init__(self, exp_buffer, size_grid):
         self.exp_buffer = exp_buffer
-        self.env = GameAI()
+        self.env = Environment(size_grid)
 
     def get_state(self):
-        head = self.env.head
+        head = self.env.snake.snake_coordinates[0]
 
-        point_l = Point(head.x - SIZE, head.y)
-        point_r = Point(head.x + SIZE, head.y)
-        point_u = Point(head.x, head.y - SIZE)
-        point_d = Point(head.x, head.y + SIZE)
+        point_l = Coordinates(head.x - 1, head.y)
+        point_r = Coordinates(head.x + 1, head.y)
+        point_u = Coordinates(head.x, head.y - 1)
+        point_d = Coordinates(head.x, head.y + 1)
         
         dir_l = self.env.snake.direction == Direction.LEFT
         dir_r = self.env.snake.direction == Direction.RIGHT
@@ -117,10 +117,10 @@ class Agent:
         danger_r = (dir_u and self.env.is_collision(point_r)) or (dir_d and self.env.is_collision(point_l)) or (dir_l and self.env.is_collision(point_u)) or (dir_r and self.env.is_collision(point_d))
         danger_l = (dir_d and self.env.is_collision(point_r)) or (dir_u and self.env.is_collision(point_l)) or (dir_r and self.env.is_collision(point_u)) or (dir_l and self.env.is_collision(point_d))
 
-        food_l = self.env.food.x < self.env.head.x  # food left
-        food_r = self.env.food.x > self.env.head.x  # food right
-        food_u = self.env.food.y < self.env.head.y  # food up
-        food_d = self.env.food.y > self.env.head.y  # food down
+        food_l = self.env.apple.apple_coordinate.x < self.env.snake.snake_coordinates[0].x  # food left
+        food_r = self.env.apple.apple_coordinate.x > self.env.snake.snake_coordinates[0].x  # food right
+        food_u = self.env.apple.apple_coordinate.y < self.env.snake.snake_coordinates[0].y  # food up
+        food_d = self.env.apple.apple_coordinate.y > self.env.snake.snake_coordinates[0].y  # food down
 
         state = [
             #direction
@@ -182,11 +182,12 @@ class Agent:
 class Training:
     def __init__(self):
         self.exp_buffer = ExperienceBuffer(HISTORY_SIZE)
-        self.agent = Agent(self.exp_buffer)
+        self.size_grid = Size_grid(10, 10)
+        self.agent = Agent(self.exp_buffer, self.size_grid)
         self.model_network = DQN(11, 256, 3) #128, 512, 3
         self.model_target_network = DQN(11, 256, 3) #128, 512, 3
         self.model_trainer = DQN_trainer(self.model_network, self.model_target_network, self.exp_buffer)
-        self.plotC = Plot()
+        # self.plotC = Plot()
 
         self.epoch = 0 
         self.best_score = 0
@@ -196,17 +197,18 @@ class Training:
     def train(self):
         while True:
             self.epoch += 1
-            if self.agent.env.is_epsilon:
-                epsilon = max(EPSILON_END, EPSILON_START - self.epoch * EPSILON_DECAY)
-            else:
-                epsilon = 0
+            epsilon = max(EPSILON_END, EPSILON_START - self.epoch * EPSILON_DECAY)
+            print("---------------------")
+            start = time.perf_counter()
             score = self.agent.play_step(self.model_network, epsilon)
+            end = time.perf_counter()
+            print("Time agent : ", end - start)
             self.model_trainer.update_model_network()
+            print("Time model : ", time.perf_counter() - end)
 
-            if self.agent.env.plot:
-                self.plotC.update_lists(score, self.epoch)
+            # self.plotC.update_lists(score, self.epoch)
             
-            print('Game', self.epoch, 'Score', score, 'Record:', self.best_score, 'Epsilon:', epsilon, 'Loss:', self.model_trainer.loss)
+            print('Game', self.epoch, 'Score', score, 'Record:', self.best_score, 'Epsilon:', epsilon)
 
             if score > self.best_score:
                 self.best_score = score
@@ -226,11 +228,10 @@ class Training:
             'optimizer_state_dict': self.model_trainer.optimizer.state_dict(),
             'loss': self.model_trainer.loss,
             'exp_buffer': self.exp_buffer,
-            'total_score': self.plotC.total_score,
-            'list_scores': self.plotC.list_scores,
-            'list_mean_scores': self.plotC.list_mean_scores,
-            'list_mean_10_scores': self.plotC.list_mean_10_scores,
-            'timer': self.agent.env.time + self.agent.env.saved_time
+            # 'total_score': self.plotC.total_score,
+            # 'list_scores': self.plotC.list_scores,
+            # 'list_mean_scores': self.plotC.list_mean_scores,
+            # 'list_mean_10_scores': self.plotC.list_mean_10_scores,
         }, 'model/model.pth')
 
     def load(self):
@@ -245,13 +246,11 @@ class Training:
         self.model_trainer.loss = checkpoint['loss']
         self.exp_buffer = checkpoint['exp_buffer']
 
-        self.plotC.epoch = checkpoint['epoch']
-        self.plotC.total_score = checkpoint['total_score']
-        self.plotC.list_scores = checkpoint['list_scores']
-        self.plotC.list_mean_scores = checkpoint['list_mean_scores']
-        self.plotC.list_mean_10_scores = checkpoint['list_mean_10_scores']
-
-        self.agent.env.saved_time = checkpoint['timer']
+        # self.plotC.epoch = checkpoint['epoch']
+        # self.plotC.total_score = checkpoint['total_score']
+        # self.plotC.list_scores = checkpoint['list_scores']
+        # self.plotC.list_mean_scores = checkpoint['list_mean_scores']
+        # self.plotC.list_mean_10_scores = checkpoint['list_mean_10_scores']
 
         self.model_network.eval()
         self.model_target_network.eval()
