@@ -22,8 +22,8 @@ class Plot:
         self.total_score += scores
 
         self.list_scores.append(scores)
-        self.list_mean_scores.append(self.total_score / self.epoch)
-        self.list_mean_10_scores.append(np.mean(self.list_scores[-10:]))
+        self.list_mean_scores.append(sum(self.list_scores) / len(self.list_scores))
+        self.list_mean_10_scores.append(np.mean(self.list_scores[-50:]))
 
         self.update_plot()
 

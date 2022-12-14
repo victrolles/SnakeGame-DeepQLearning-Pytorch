@@ -39,8 +39,8 @@ class GameAI:
         self.saved_time = 0
 
         self.display = False
-        self.random_init = False
-        self.plot = True
+        self.random_init = True
+        self.plot = False
         self.speed = True
         self.is_epsilon = True
 
@@ -226,7 +226,7 @@ class Snake:
     def __init__(self, parent_screen, random_init=False):
         self.parent_screen = parent_screen
         if random_init:
-            self.length = random.randint(10, 40)
+            self.length = random.randint(3, 20)
             self.direction = Direction(random.randint(1,4))
             self.create_random_snake()
         else:

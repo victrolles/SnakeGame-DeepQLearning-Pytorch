@@ -8,17 +8,17 @@ import torch.optim as optim
 from helper import Plot
 import time
 
-HISTORY_SIZE = 10_000
+HISTORY_SIZE = 100_000
 BATCH_SIZE = 1000
 
-LR = 0.0005
+LR = 0.001
 GAMMA = 0.95
 
 EPSILON_START = 1
-EPSILON_END = 0.05
+EPSILON_END = 0.01
 EPSILON_DECAY = 0.00001
 
-SYNC_TARGET_EPOCH = 1000
+SYNC_TARGET_EPOCH = 100
 
 Experience = namedtuple('Experience', ('state', 'action', 'reward', 'done', 'next_state'))
 
@@ -45,6 +45,10 @@ class DQN(nn.Module):
         self.fully_connected_layers = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
             nn.Linear(hidden_size, output_size)
         )
 
@@ -68,14 +72,18 @@ class DQN_trainer:
         else:
             batch = self.exp_buffer.sample(BATCH_SIZE)
         states, actions, rewards, dones, next_states = batch
-
+        # print('---------------------------------')
+        # print("-----------------------")
         states = torch.tensor(states, dtype=torch.float)
         actions = torch.tensor(actions, dtype=torch.float)
+        # print("actions: ", actions)
+        # print("Qvalues: ", self.model_network(states))
         rewards = torch.tensor(rewards, dtype=torch.float)
         next_states = torch.tensor(next_states, dtype=torch.float)
         dones = torch.ByteTensor(dones)
-
-        state_action_values = self.model_network(states).max(1)[0]
+        state_action_values = self.model_network(states).gather(1, torch.argmax(actions, dim=1).unsqueeze(1)).squeeze(1)
+        # print("state_action_values bad: ", self.model_network(states).max(1)[0])
+        # print("state_action_values: ", state_action_values)
         next_state_values = self.model_target_network(next_states).max(1)[0]
         next_state_values[dones] = 0.0
         next_state_values = next_state_values.detach()
@@ -133,7 +141,7 @@ class Agent:
         #     danger_s
         #     ]
 
-        # # print("state: ", state)
+        # print("state: ", state)
         # return np.array(state, dtype=int)
         return self.env.state_grid()
 
@@ -165,6 +173,7 @@ class Agent:
             next_state = self.get_state()
 
             exp = Experience(current_state, action, reward, done, next_state)
+            # print("exp: ", exp)
             self.exp_buffer._append(exp)
 
             if done:
@@ -174,8 +183,8 @@ class Training:
     def __init__(self):
         self.exp_buffer = ExperienceBuffer(HISTORY_SIZE)
         self.agent = Agent(self.exp_buffer)
-        self.model_network = DQN(128, 256, 3) #128, 512, 3
-        self.model_target_network = DQN(128, 256, 3) #128, 512, 3
+        self.model_network = DQN(128, 512, 3) #128, 512, 3
+        self.model_target_network = DQN(128, 512, 3) #128, 512, 3
         self.model_trainer = DQN_trainer(self.model_network, self.model_target_network, self.exp_buffer)
         self.plotC = Plot()
 
