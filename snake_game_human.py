@@ -1,21 +1,26 @@
-import pygame
-from timeit import default_timer as timer
+# import pygame
 import random
 from enum import Enum
-from collections import namedtuple
 import numpy as np
-from numba import cuda
+from collections import namedtuple
+import multiprocessing as mp
+import time
 
-from pygame.locals import * # input
+from datetime import datetime
+# from pygame.locals import * # input
+
+# pygame.init()
+
+BACKGROUND_COLOR = (0, 102, 0)
+RED = (255, 0, 0)
+PINK = (255, 0, 255)
+DARK_PINK = (102, 0, 102)
+BLUE = (0, 0, 255)
+DARK_BLUE = (0, 0, 153)
 
 SIZE = 40
-SPEED = 1
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
-GREEN = (0, 255, 0)
-YELLOW = (255, 255, 0)
-BACKGROUND_COLOR = (110, 110, 5)
-SIZE_SCREEN = (1040,800) #multiple de 40 obligatoire 1040 800
+SPEED = 10
+SIZE_SCREEN = (1040, 800) #multiple de 40 : (26, 20)(1040, 800)     (240, 240) (320, 320)
 
 class Direction(Enum):
     RIGHT = 1
@@ -25,249 +30,166 @@ class Direction(Enum):
 
 Point = namedtuple('Point', 'x, y')
 
-class Game:
+class GameAI:
     def __init__(self):
-        pygame.init()
-        self.surface = pygame.display.set_mode(SIZE_SCREEN)
-        pygame.display.set_caption('Snake')
-        self.clock = pygame.time.Clock()
-        # self.time = pygame.time.Clock()
-        self.surface.fill((255,255,255))
+        
+
+        # self.surface = pygame.display.set_mode(SIZE_SCREEN)
+        # pygame.display.set_caption('Snake')
+        # self.clock = pygame.time.Clock()
         self.time = 0
         self.saved_time = 0
+
+        self.display = True
+        self.random_init = True
+        self.plot = False
+        self.speed = False
+        self.is_epsilon = True
+
         self.reset()
 
-    def run(self): 
-        
+    def run(self):
         while True:
+            self.play(1)
+            time.sleep(8)
 
-            game_over, score = self.play()
-
-            if game_over:
-                break
-
-        print("game over : " + str(game_over) + ", score : " + str(score))
-        pygame.quit()
-
-    def play(self):
+    def play(self, action):
+        self.frame_iteration +=1
 
         # 1. collect user input
-        for event in pygame.event.get():
-                if event.type == KEYDOWN:
-                    if event.key == K_UP:
-                        if self.direction != Direction.DOWN:
-                            self.direction = Direction.UP
+        # for event in pygame.event.get():
+        #         if event.type == KEYDOWN:
 
-                    if event.key == K_DOWN:
-                        if self.direction != Direction.UP:
-                            self.direction = Direction.DOWN
+        #             if event.key == K_ESCAPE:
+        #                 pygame.quit()
+        #                 quit()
 
-                    if event.key == K_RIGHT:
-                        if self.direction != Direction.LEFT:
-                            self.direction = Direction.RIGHT
+        #             if event.key == K_d:
+        #                 if self.display:
+        #                     self.display = False
+        #                 else:
+        #                     self.display = True
 
-                    if event.key == K_LEFT:
-                        if self.direction != Direction.RIGHT:
-                            self.direction = Direction.LEFT
+        #             if event.key == K_r:
+        #                 if self.random_init:
+        #                     self.random_init = False
+        #                 else:
+        #                     self.random_init = True
 
-                    if event.key == K_ESCAPE:
-                        pygame.quit()
-                        quit()
+        #             if event.key == K_p:
+        #                 if self.plot:
+        #                     self.plot = False
+        #                 else:
+        #                     self.plot = True
 
-                elif event.type == QUIT:
-                    pygame.quit()
-                    quit()
-        
+        #             if event.key == K_s:
+        #                 if self.speed:
+        #                     self.speed = False
+        #                 else:
+        #                     self.speed = True
+
+        #             if event.key == K_e:
+        #                 if self.is_epsilon:
+        #                     self.is_epsilon = False
+        #                 else:
+        #                     self.is_epsilon = True
+
+        #         elif event.type == QUIT:
+        #             pygame.quit()
+        #             quit()
+
         # 2. move
-        self.render_background()
-        self.snake.move(self.direction)
+        self.snake.move(action)    
         self.head = Point(self.snake.x[0],self.snake.y[0])
-        self.apple.draw()
-        self.display_score()
-
-        # BFS
-        print("------------------------------------------------------")
-        # start_time = timer()
-        # right = 0
-        # left = 0
-        # up = 0
-        # down = 0
-        
-        # if self.direction != Direction.LEFT:
-        #     right = self.DFS(Point(self.head.x + SIZE, self.head.y), BLUE, occurence_test=True)
-        #     print("right : " + str(right))
-        # if self.direction != Direction.RIGHT:
-        #     left = self.DFS(Point(self.head.x - SIZE, self.head.y), RED, occurence_test=True)
-        #     print("left : " + str(left))
-        # if self.direction != Direction.UP:
-        #     down = self.DFS(Point(self.head.x, self.head.y + SIZE), GREEN, occurence_test=True)
-        #     print("down : " + str(down))
-        # if self.direction != Direction.DOWN:
-        #     up = self.DFS(Point(self.head.x, self.head.y - SIZE), YELLOW, occurence_test=True)
-        #     print("up : " + str(up))
-
-        # print("time : " + str(timer() - start_time))
-
-
-        head = self.head
-
-        point_l = Point(head.x - SIZE, head.y)
-        point_r = Point(head.x + SIZE, head.y)
-        point_u = Point(head.x, head.y - SIZE)
-        point_d = Point(head.x, head.y + SIZE)
-        
-        dir_l = self.direction == Direction.LEFT
-        dir_r = self.direction == Direction.RIGHT
-        dir_u = self.direction == Direction.UP
-        dir_d = self.direction == Direction.DOWN
-
-        # danger_s = (dir_r and game.is_collision(point_r)) or (dir_l and game.is_collision(point_l)) or (dir_u and game.is_collision(point_u)) or (dir_d and game.is_collision(point_d))
-        # danger_r = (dir_u and game.is_collision(point_r)) or (dir_d and game.is_collision(point_l)) or (dir_l and game.is_collision(point_u)) or (dir_r and game.is_collision(point_d))
-        # danger_l = (dir_d and game.is_collision(point_r)) or (dir_u and game.is_collision(point_l)) or (dir_r and game.is_collision(point_u)) or (dir_l and game.is_collision(point_d))
-
-        food_l = self.food.x < self.head.x  # food left
-        food_r = self.food.x > self.head.x  # food right
-        food_u = self.food.y < self.head.y  # food up
-        food_d = self.food.y > self.head.y  # food down
-
-        dir_cons_l = False
-        dir_cons_r = False
-        dir_cons_u = False
-        dir_cons_d = False
-
-        # left = game.DFS(point_l, occurence_test=True)
-        # right = game.DFS(point_r, occurence_test=True)
-        # up = game.DFS(point_u, occurence_test=True)
-        # down = game.DFS(point_d, occurence_test=True)
-
-        # print("left : " + str(left))
-        # print("right : " + str(right))
-        # print("up : " + str(up))
-        # print("down : " + str(down))
-
-        # if left == max(left, right, up, down):
-        #     dir_cons_l = True
-        # if right == max(left, right, up, down):
-        #     dir_cons_r = True
-        # if up == max(left, right, up, down):
-        #     dir_cons_u = True
-        # if down == max(left, right, up, down):
-        #     dir_cons_d = True
-
-        print("la direction est : " + str(self.direction))
-        if dir_l:
-            left = game.DFS(point_l, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            # print("left : " + str(left))
-            # print("up : " + str(up))
-            # print("down : " + str(down))
-            if left > 50:
-                dir_cons_l = True
-            elif left > up and left > down:
-                dir_cons_l = True
-            elif up > down:
-                dir_cons_u = True
-            else:
-                dir_cons_d = True
-        elif dir_r:
-            right = game.DFS(point_r, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            # print("right : " + str(right))
-            # print("up : " + str(up))
-            # print("down : " + str(down))
-            if right > 50:
-                dir_cons_r = True
-            elif right > up and right > down:
-                dir_cons_r = True
-            elif up > down:
-                dir_cons_u = True
-            else:
-                dir_cons_d = True
-        elif dir_u:
-            right = game.DFS(point_r, occurence_test=True)
-            left = game.DFS(point_l, occurence_test=True)
-            up = game.DFS(point_u, occurence_test=True)
-            # print("right : " + str(right))
-            # print("left : " + str(left))
-            # print("up : " + str(up))
-            if up > 50:
-                dir_cons_u = True
-            elif up > right and up > left:
-                dir_cons_u = True
-            elif right > left:
-                dir_cons_r = True
-            else:
-                dir_cons_l = True
-        else:
-            right = game.DFS(point_r, occurence_test=True)
-            left = game.DFS(point_l, occurence_test=True)
-            down = game.DFS(point_d, occurence_test=True)
-            # print("right : " + str(right))
-            # print("left : " + str(left))
-            # print("down : " + str(down))
-            if down > 50:
-                dir_cons_d = True
-            elif down > right and down > left:
-                dir_cons_d = True
-            elif left > right:
-                dir_cons_l = True
-            else:
-                dir_cons_r = True
-        print("---------------------")
-        if dir_l:
-            print("dir_l")
-        elif dir_r:
-            print("dir_r")
-        elif dir_u:
-            print("dir_u")
-        else:
-            print("dir_d")
-
-        if dir_cons_l:
-            print("recommanded left")
-        if dir_cons_r:
-            print("recommanded right")
-        if dir_cons_u:
-            print("recommanded up")
-        if dir_cons_d:
-            print("recommanded down")
-
-        pygame.display.flip()
+        print("head", self.head)
+        # if self.display:
+        #     self.render_background()
+        #     self.snake.draw()
+        #     self.apple.draw()
+            # self.display_score()
+            # pygame.display.flip()
 
         # 3. check if game over
         game_over = False
+        reward = 0
+
+        ##  3.0. closer to apple
+        dist_current = np.sqrt((self.snake.x[0] - self.food.x)**2 + (self.snake.y[0] - self.food.y)**2)
+        dist_previous = np.sqrt((self.snake.x[1] - self.food.x)**2 + (self.snake.y[1] - self.food.y)**2)
+        if dist_current < dist_previous:
+            reward = 1
+        else:
+            reward = -1
+
         ##  3.1. snake colliding with apple
         if self.collision(self.snake.x[0], self.snake.y[0], self.apple.x, self.apple.y):
             self.apple.move(self.snake)
             self.food = Point(self.apple.x,self.apple.y)
             self.snake.increase_length()
             self.score +=1
+            reward = 10
 
         ##  3.2. snake colliding
-        if self.is_collision(self.head):
+        if self.is_collision(self.head) or self.frame_iteration > 100*self.snake.length:
             game_over = True
-            return game_over, self.score
+            reward = -100
+            return reward, game_over, self.score
 
-        ##  3.3. victory
+        ##  3.4. victory
         if self.snake.length == int((SIZE_SCREEN[0]*SIZE_SCREEN[1])/(SIZE*SIZE)):
             print("win")
             game_over = True
-            return game_over, self.score
+            reward = 10
+            return reward, game_over, self.score
 
-        self.clock.tick(SPEED)
+        # if not self.speed:
+        #     self.clock.tick(SPEED)
 
-        return game_over, self.score  
+        return reward, game_over, self.score
 
-    def display_score(self):
-        self.time = int((pygame.time.get_ticks())/1000)
+    def state_grid(self):
+        grid1 = np.zeros((SIZE_SCREEN[1]//SIZE,SIZE_SCREEN[0]//SIZE),dtype=int)
+        for i in range(self.snake.length):
+            if 0 <= int(self.snake.y[i]//SIZE) < int(SIZE_SCREEN[1]//SIZE) and 0 <= int(self.snake.x[i]//SIZE) < int(SIZE_SCREEN[0]//SIZE):
+                grid1[int(self.snake.y[i]//SIZE),int(self.snake.x[i]//SIZE)] = 1
+        grid1[int(self.apple.y//SIZE),int(self.apple.x//SIZE)] = 2
+        flat_grid1 = grid1.flatten()
 
-        font = pygame.font.SysFont('arial',30)
-        score = font.render(f"Score: {self.score}", True, (255,255,255))
-        self.surface.blit(score,(800,10))
-        score2 = font.render(f"Timer: {self.time} s", True, (255,255,255))
-        self.surface.blit(score2,(800,50))
+        grid2 = np.zeros((SIZE_SCREEN[1]//SIZE,SIZE_SCREEN[0]//SIZE),dtype=int)
+        for i in range(1,self.snake.length):
+            if 0 <= int(self.snake.y[i]//SIZE) < int(SIZE_SCREEN[1]//SIZE) and 0 <= int(self.snake.x[i]//SIZE) < int(SIZE_SCREEN[0]//SIZE):
+                grid2[int(self.snake.y[i]//SIZE),int(self.snake.x[i]//SIZE)] = 1
+        grid2[int(self.snake.old_y//SIZE),int(self.snake.old_x//SIZE)] = 1
+        grid2[int(self.apple.y//SIZE),int(self.apple.x//SIZE)] = 2
+        flat_grid2 = grid2.flatten()
+        flat_grid = np.concatenate((flat_grid1,flat_grid2))
+        return flat_grid
+
+    # def display_score(self):
+    #     self.time = int((pygame.time.get_ticks())/1000)
+    #     new_time = self.time + self.saved_time
+    #     h = 0
+    #     m = 0
+    #     s = 0
+
+    #     font = pygame.font.SysFont('arial',30)
+    #     if new_time < 60:
+    #         s = new_time
+    #         score2 = font.render(f"Timer: {s} s", True, (255,255,255))
+    #     elif new_time < 3600:
+    #         m = new_time // 60
+    #         s = new_time % 60
+    #         score2 = font.render(f"Timer: {m} min {s} s", True, (255,255,255))
+    #     else:
+    #         h = new_time // 3600
+    #         m = (new_time % 3600) // 60
+    #         s = (new_time % 3600) % 60
+    #         score2 = font.render(f"Timer: {h} hours {m} min {s} s", True, (255,255,255))
+
+        
+    #     score = font.render(f"Score: {self.score}", True, (255,255,255))
+    #     self.surface.blit(score,(750,10))
+    #     self.surface.blit(score2,(750,50))
 
     def collision(self,x1, y1, x2, y2):
         if x1 >= x2 and x1 < x2 + SIZE:
@@ -280,102 +202,55 @@ class Game:
         if head is None:
             head = self.head
         ##  snake colliding with itself
-        for i in range(1,self.snake.length):
+        for i in range(3,self.snake.length):
             if self.collision(head.x, head.y, self.snake.x[i], self.snake.y[i]):
-                # print("collision with itself")
                 return True
 
         ##  snake colliding with the boundries of the window
         if not (0 <= head.x < SIZE_SCREEN[0] and 0 <= head.y < SIZE_SCREEN[1]):
-            # print("collision with wall")
             return True
 
         return False
 
-    def render_background(self):
-        bg = pygame.image.load("resources/background.jpg")
-        self.surface.blit(bg, (0,0))
+    # def render_background(self):
+    #     self.surface.fill(BACKGROUND_COLOR)
 
     def reset(self):
-        self.direction = Direction(random.randint(1, 4))
-        self.snake = Snake(self.surface,30, self.direction)
-        self.snake.draw()
-        self.head = Point(self.snake.x[0],self.snake.y[0])
-
-        self.apple = Apple(self.surface)
-        self.food = Point(self.apple.x,self.apple.y)
-        self.apple.draw()
-
+        self.snake = Snake(self.random_init)
+        # if self.display:
+        #     self.snake.draw()
+        self.food = None
+        self.apple = Apple(self.snake)
+        # if self.display:
+        #     self.apple.draw()
+        
         self.score = 0
-
-    def draw_square(self, color, pos):
-        pygame.draw.rect(self.surface, color, pygame.Rect(pos[0], pos[1], SIZE, SIZE))
-
-    def next_state(self, state):
-        list = []
-        tempList = []
-
-        tempList.append(Point(state.x + SIZE, state.y))
-        tempList.append(Point(state.x - SIZE, state.y))
-        tempList.append(Point(state.x, state.y + SIZE))
-        tempList.append(Point(state.x, state.y - SIZE))
-
-        for tempState in tempList:
-            if not self.is_collision(tempState):
-                if tempState != self.head:
-                    list.append(tempState)
-
-        return list
-
-    def DFS(self, initial_state, occurence_test=True):
-
-        list_states_in_queue=[initial_state]
-        list_states_Explored=[]
-        iter=0
-        for i in range(1, self.snake.length):
-            if self.snake.x[i] == initial_state.x and self.snake.y[i] == initial_state.y:
-                print("is in snake")
-                return 0
-
-
-        while list_states_in_queue:
-            current_state=list_states_in_queue.pop(0)
-            list_new_states=self.next_state(current_state)
-            for new_state in list_new_states:
-                # self.draw_square(color, (new_state.x, new_state.y))
-                if not occurence_test or new_state not in list_states_Explored:
-                    iter+=1
-                    if iter > 50:
-                        return iter
-                    list_states_in_queue.append(new_state)
-                    if occurence_test:
-                        list_states_Explored.append(new_state)
-        return iter
-
+        self.head = Point(self.snake.x[0],self.snake.y[0])
+        self.food = Point(self.apple.x,self.apple.y)
+        self.frame_iteration = 0
 
 class Snake:
-    def __init__(self, parent_screen, length, direction):
-        self.parent_screen = parent_screen
-        self.length = length
-        self.block = pygame.image.load("resources/block.jpg").convert()
-        self.direction = direction
-        self.create_random_snake()
-        # print("direction : " + str(self.direction))
+    def __init__(self, random_init=False):
+        # self.parent_screen = parent_screen
+        if random_init:
+            self.length = random.randint(2, 3)
+            self.direction = Direction(random.randint(1,4))
+            self.create_random_snake()
+        else:
+            self.length = 2
+            self.direction = Direction.DOWN
+            self.x = [SIZE_SCREEN[0] / 2, SIZE_SCREEN[0] / 2]
+            self.y = [SIZE_SCREEN[1] / 2, SIZE_SCREEN[1] / 2 - SIZE]
+        self.old_x = self.x[self.length-1]
+        self.old_y = self.y[self.length-1]
+        
 
     def create_random_snake(self):
-        
-        # self.length = random.randint(10, 20)
-        # self.direction = Direction.DOWN
-        # self.length = 5
-        x = random.randint(0, SIZE_SCREEN[0] / SIZE - 1) * SIZE
-        y = random.randint(0, SIZE_SCREEN[1] / SIZE - 1) * SIZE
+        x = random.randint(2, SIZE_SCREEN[0] / SIZE - 2) * SIZE
+        y = random.randint(2, SIZE_SCREEN[1] / SIZE - 2) * SIZE
         self.x = [x]
         self.y = [y]
-        # print("------------------------------------------")
-        # print("head : " + str(x) + " " + str(y))
-        print("direction : " + str(self.direction))
-        print("length : " + str(self.length))
-        print("------------------------------------------")
+
         direction = self.direction
         for i in range(1, self.length):
             if direction == Direction.RIGHT:
@@ -426,116 +301,36 @@ class Snake:
                         direction = Direction.LEFT
                 self.x.append(x)
                 self.y.append(y)
-            
-
-            #     self.x.append(x)
-            #     self.y.append(y)
-            #     direction = Direction.RIGHT
-            # elif direction == Direction.LEFT:
-            #     x = x + SIZE
-            #     self.x.append(x)
-            #     self.y.append(y)
-            #     direction = Direction.LEFT
-            # elif direction == Direction.UP:
-            #     y = y + SIZE
-            #     self.x.append(x)
-            #     self.y.append(y)
-            #     direction = Direction.UP
-            # elif direction == Direction.DOWN:
-            #     y = y - SIZE
-            #     self.x.append(x)
-            #     self.y.append(y)
-            #     direction = Direction.DOWN   
-
-        # if self.direction == Direction.RIGHT:
-        #     x = x - SIZE
-        #     self.x.append(x)
-        #     self.y.append(y)
-        #     direction = Direction.RIGHT
-        # elif self.direction == Direction.LEFT:
-        #     x = x + SIZE
-        #     self.x.append(x)
-        #     self.y.append(y)
-        #     direction = Direction.LEFT
-        # elif self.direction == Direction.UP:
-        #     y = y + SIZE
-        #     self.x.append(x)
-        #     self.y.append(y)
-        #     direction = Direction.UP
-        # elif self.direction == Direction.DOWN:
-        #     y = y - SIZE
-        #     self.x.append(x)
-        #     self.y.append(y)
-        #     direction = Direction.DOWN
-
-        # print("2nd : " + str(x) + " " + str(y))
-        # print("direction : " + str(direction))
-
-        # for i in range(2, self.length):
-        #     saveX=x
-        #     saveY=y
-        #     iter= 0
-        #     leave = False
-        #     while True:
-        #         good = False
-        #         leave = False
-        #         rand = random.randint(1,4)
-        #         # print("rand : " + str(rand))
-        #         iter+=1
-        #         if iter > 20:
-        #             leave = True
-        #             print("leave")
-        #             break
-                    
-        #         x = saveX
-        #         y = saveY
-
-        #         if Direction(rand) == Direction.RIGHT:
-        #             x = x - SIZE
-        #             new_direction = Direction.RIGHT
-        #         elif Direction(rand) == Direction.LEFT:
-        #             x = x + SIZE
-        #             new_direction = Direction.LEFT
-        #         elif Direction(rand) == Direction.UP:
-        #             y = y + SIZE
-        #             new_direction = Direction.UP
-        #         elif Direction(rand) == Direction.DOWN:
-        #             y = y - SIZE
-        #             new_direction = Direction.DOWN
-
-        #         if new_direction != direction:
-        #             # print("ok1")
-        #             if 0 <= x < SIZE_SCREEN[0] and 0 <= y < SIZE_SCREEN[1]:
-        #                 # print("ok2")
-        #                 good = True
-        #                 for j in range(0, len(self.x)):
-        #                     if x == self.x[j] and y == self.y[j]:
-        #                         good = False
-
-        #         if good:
-        #             # print("ok3")
-        #             direction = new_direction   
-        #             self.x.append(x)
-        #             self.y.append(y)
-        #             saveX=x
-        #             saveY=y
-        #             break
-        # if leave:
-        #     self.length = len(self.x)
-
 
     def increase_length(self):
         self.length+=1
         self.x.append(-1)
         self.y.append(-1)
 
-    def draw(self):
-        for i in range(self.length):
-            self.parent_screen.blit(self.block,(self.x[i],self.y[i]))
+    # def draw(self):
+    #     pygame.draw.rect(self.parent_screen, DARK_BLUE, (self.x[0], self.y[0], SIZE, SIZE))
+    #     for i in range(1,self.length):
+    #         pygame.draw.rect(self.parent_screen, BLUE, (self.x[i], self.y[i], SIZE, SIZE))
 
-    def move(self, direction):
-        
-        self.direction = direction
+    def move(self, action):
+        # [straight, right, left]
+
+        clock_wise = [Direction.RIGHT, Direction.DOWN, Direction.LEFT, Direction.UP]
+        idx = clock_wise.index(self.direction)
+
+        if np.array_equal(action, [1, 0, 0]):
+            new_dir = clock_wise[idx] # no change
+        elif np.array_equal(action, [0, 1, 0]):
+            next_idx = (idx + 1) % 4
+            new_dir = clock_wise[next_idx] # right turn r -> d -> l -> u
+        else: # [0, 0, 1]
+            next_idx = (idx - 1) % 4
+            new_dir = clock_wise[next_idx] # left turn r -> u -> l -> d
+
+        self.direction = new_dir
+
+        self.old_x = self.x[self.length-1]
+        self.old_y = self.y[self.length-1]
 
         for i in range(self.length-1,0,-1):
             self.x[i] = self.x[i-1]
@@ -549,29 +344,40 @@ class Snake:
             self.x[0] += SIZE
         if self.direction == Direction.LEFT:
             self.x[0] -= SIZE
-        self.draw()
 
 class Apple:
-    def __init__(self, parent_screen):
-        self.image = pygame.image.load("resources/apple.jpg").convert()
-        self.parent_screen = parent_screen
-        self.x = random.randint(0,SIZE_SCREEN[0]/SIZE-1)*SIZE
-        self.y = random.randint(0,SIZE_SCREEN[1]/SIZE-1)*SIZE
+    def __init__(self, snake):
+        # self.parent_screen = parent_screen
+        self.x = 0
+        self.y = 0
+        self.move(snake)
 
-    def draw(self):
-        self.parent_screen.blit(self.image,(self.x,self.y))
+    # def draw(self):
+    #     pygame.draw.rect(self.parent_screen, RED, (self.x, self.y, SIZE, SIZE))
 
     def move(self,snake):
-        available_place = False
-        while not available_place:
-            available_place = True
+        while True:
+            available = True
             self.x = random.randint(0,SIZE_SCREEN[0]/SIZE-1)*SIZE
             self.y = random.randint(0,SIZE_SCREEN[1]/SIZE-1)*SIZE
             for i in range(snake.length):
                 if self.x == snake.x[i] and self.y == snake.y[i]:
-                    available_place = False
-        self.draw()
+                    available = False
+            if available:
+                break
 
-if __name__ == "__main__":
-    game = Game()
-    game.run()
+if __name__ == '__main__':
+    environments = []
+    processes = []
+
+    for i in range(4):
+        env = GameAI()
+        p = mp.Process(target=env.run)
+        p.start()
+        environments.append(env)
+        processes.append(p)
+        time.sleep(1)
+
+    for process in processes:
+        process.join()
+        
