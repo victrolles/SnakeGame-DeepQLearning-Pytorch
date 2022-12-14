@@ -1,4 +1,16 @@
-import numpy as np
+import multiprocessing as mp
 
-list = [1,2,3,4,5]
-print(list[-1])
+def addtolist(x):
+    x[0] = 1
+    x[2] = -2
+    print(type(x))
+    print(x[:])
+
+if __name__ == '__main__':
+    shared_list = mp.Array('i', 5)
+    for i in range(5):
+        shared_list[i] = -1
+    p = mp.Process(target=addtolist, args=(shared_list,))
+    p.start()
+    p.join()
+    print(shared_list[0])

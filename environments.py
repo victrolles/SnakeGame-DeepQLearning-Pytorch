@@ -2,6 +2,7 @@ import numpy as np
 from enum import Enum
 from collections import namedtuple
 import time
+import multiprocessing as mp
 
 Size_screen = namedtuple('Size_screen', ['width', 'height'])
 Size_grid = namedtuple('Size_grid', ['width', 'height'])
@@ -31,10 +32,16 @@ class Environment:
         self.score = 0
         self.interation = 0
 
-    def run(self):
+    def run(self, shared_list):
         while True:
             self.play(1)
-            time.sleep(2)
+            for idx, snake_coordinate in enumerate(self.snake.snake_coordinates):
+                shared_list[2*idx] = snake_coordinate.x
+                shared_list[2*idx+1] = snake_coordinate.y
+            shared_list[-3] = self.apple.apple_coordinate.x
+            shared_list[-2] = self.apple.apple_coordinate.y
+            shared_list[-1] = self.score
+            time.sleep(8)
 
     def play(self, action):
         # update or reset variables
@@ -47,7 +54,7 @@ class Environment:
 
         # check if snake is closer to apple
         print("snake head: ", self.snake.snake_coordinates[0])
-        print("apple: ", self.apple.apple_coordinate)
+        # print("apple: ", self.apple.apple_coordinate)
         current_dist = np.sqrt((self.snake.snake_coordinates[0].x - self.apple.apple_coordinate.x)**2 + (self.snake.snake_coordinates[0].y - self.apple.apple_coordinate.y)**2)
         old_dist = np.sqrt((self.snake.snake_coordinates[1].x - self.apple.apple_coordinate.x)**2 + (self.snake.snake_coordinates[1].y - self.apple.apple_coordinate.y)**2) if self.snake.length > 1 else 0
         if current_dist < old_dist:
@@ -63,7 +70,7 @@ class Environment:
             reward = 10
 
         # check if snake collides with itself or with the wall
-        if self.is_collision():
+        if self.is_collision() or self.interation > 100*self.snake.length:
             done = True
             reward = -100
             return reward, done, self.score
@@ -144,7 +151,44 @@ class Apple:
                     continue
             break
 
+class Graphics:
+    def __init__(self, size_screen, size_grid, environments):
+        pass
+
+def display(shared_memories):
+    print("hello")
+    while True:
+        for idx, elem in enumerate(shared_memories):
+            print("idx display: ", idx)
+            print("head coordinate display: ", elem[0], elem[1])
+        time.sleep(8)
+
 if __name__ == '__main__':
+    size_screen = Size_screen(1920, 1080)
     size_grid = Size_grid(10,8)
-    env = Environment(size_grid)
-    env.run()
+    size_shared_memory = 3+2*size_grid.width*size_grid.height
+    environments = []
+    processes = []
+    shared_memories = []
+
+    for _ in range(4):
+        env = Environment(size_grid)
+        shared_memory = mp.Array('i', size_shared_memory)
+        for i in range(size_shared_memory):
+            shared_memory[i] = -2
+        process = mp.Process(target=env.run, args=(shared_memory,))
+
+        process.start()
+
+        environments.append(env)
+        shared_memories.append(shared_memory)
+        processes.append(process)
+
+        time.sleep(1)
+
+    graphic_process = mp.Process(target=display, args=(shared_memories,))
+    graphic_process.start()
+
+    for process in processes:
+        process.join()
+    graphic_process.join()
