@@ -6,9 +6,11 @@ import torch.nn as nn
 import torch.optim as optim
 from helper import Graphics
 import time
+import torch.multiprocessing as mp
 
 HISTORY_SIZE = 100_000
 BATCH_SIZE = 1000
+BUFFER_SIZE = 1000
 
 LR = 0.01 #0.001
 GAMMA = 0.9 #0.95
@@ -155,7 +157,7 @@ class Agent:
 
         return final_move
 
-    def play_step(self, model_network, epsilon):
+    def play_step(self, model_network, epsilon, exp_buffer):
         self.env.reset()
         while True:
 
@@ -180,6 +182,7 @@ class Training:
         self.agent = Agent(self.exp_buffer, self.size_grid)
         self.model_network = DQN(11, 256, 3) #128, 512, 3
         self.model_target_network = DQN(11, 256, 3) #128, 512, 3
+        # self.model_network.share_memory()
         self.model_trainer = DQN_trainer(self.model_network, self.model_target_network, self.exp_buffer)
 
         self.epoch = 0 
@@ -253,6 +256,36 @@ class Training:
         self.model_network.eval()
         self.model_target_network.eval()
 
+def main():
+    size_grid = Size_grid(10, 10)
+
+    model_network = DQN(11, 256, 3) #128, 512, 3
+    model_target_network = DQN(11, 256, 3) #128, 512, 3
+    model_network.share_memory()
+    model_target_network.share_memory()
+
+    exp_buffer = mp.Queue(maxsize=BUFFER_SIZE)
+
+    for i in range(4):
+        p = mp.Process(target=play, args=(i, size_grid, exp_buffer, model_network))
+        p.start()
+
 if __name__ == '__main__':
-    training = Training()
-    training.train() 
+    main()
+
+    # def __init__(self):
+    #     self.size_grid = Size_grid(10, 10)
+
+    #     self.exp_buffer = ExperienceBuffer(HISTORY_SIZE)
+    #     self.agent = Agent(self.exp_buffer, self.size_grid)
+    #     self.model_network = DQN(11, 256, 3) #128, 512, 3
+    #     self.model_target_network = DQN(11, 256, 3) #128, 512, 3
+    #     # self.model_network.share_memory()
+    #     self.model_trainer = DQN_trainer(self.model_network, self.model_target_network, self.exp_buffer)
+
+    #     self.epoch = 0 
+    #     self.best_score = 0
+    #     self.epsilon = EPSILON_START
+    #     self.time = time.time()
+
+    #     self.graphics = Graphics(self.size_grid, self.agent.env, self.epsilon, self.best_score, self.epoch, self.time)
