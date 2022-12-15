@@ -1,12 +1,15 @@
 import torch
-import numpy as np
-from collections import deque, namedtuple
-from environments import Environment, Direction, Coordinates, Size_grid
 import torch.nn as nn
 import torch.optim as optim
-from helper import Graphics
-import time
 import torch.multiprocessing as mp
+import numpy as np
+import time
+
+from collections import deque, namedtuple
+
+from environments import Environment, Direction, Coordinates, Size_grid
+from helper import Graphics
+
 
 HISTORY_SIZE = 100_000
 BATCH_SIZE = 1000

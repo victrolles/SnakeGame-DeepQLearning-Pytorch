@@ -1,7 +1,6 @@
 import numpy as np
 from enum import Enum
 from collections import namedtuple
-import time
 
 Size_screen = namedtuple('Size_screen', ['width', 'height'])
 Size_grid = namedtuple('Size_grid', ['width', 'height'])
