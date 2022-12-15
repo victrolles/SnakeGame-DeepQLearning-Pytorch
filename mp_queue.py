@@ -13,14 +13,18 @@ def add_queue(q):
         # reward = np.random.randint(0, 10)
         # exp = Exp(state, action, reward)
         q.put(np.random.randint(0, 10))
-        time.sleep(1)
+        time.sleep(0.2)
 
 def print_queue(q):
     elements = []
     while True:
-        elements.append(q.get())
-
+        print("------------------------")
+        while not q.empty():
+            elements.append(q.get())
+            print("+1")
+        print("list empty for now")
         print("elements: ", elements)
+        time.sleep(2)
 
 def main():
     q = mp.Queue(maxsize=10)

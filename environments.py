@@ -33,10 +33,6 @@ class Environment:
         reward = 0
         done = False
 
-        # game speed
-        if not self.max_speed:
-            time.sleep(0.2)
-
         # move snake
         self.snake.move(action)
 

@@ -2,6 +2,7 @@ import tkinter as tk
 from collections import namedtuple
 import time
 import torch.multiprocessing as mp
+import numpy as np
 
 Size_screen = namedtuple('Size_screen', ['width', 'height'])
 Size_grid = namedtuple('Size_grid', ['width', 'height'])
@@ -9,12 +10,15 @@ Coordinates = namedtuple('Coordinates', ['x', 'y'])
 
 
 class tkinter_test:
-    def __init__(self, shared_memory, position_canvas):
+    def __init__(self, shared_memory, espilon, position_canvas):
         self.size_grid = Size_grid(8, 8)
         self.size_screen = Size_screen(1000, 600)
         size_canvas = Size_screen(250, 250)
+        self.espilon = espilon
+
         self.pixel_size = int(size_canvas.width / self.size_grid.width)
         self.size_canvas = Size_screen(self.size_grid.width*self.pixel_size, self.size_grid.height*self.pixel_size)
+
         self.root = tk.Tk()
         self.root.title("Snake")
         self.root.geometry(f"{self.size_screen.width}x{self.size_screen.height}")
@@ -39,6 +43,10 @@ class tkinter_test:
             canvas_score.create_text(50, 10, text=f"Score: {score}", fill="#FFFFFF", font=("Arial", 15))
             canvas_score.place(x=position_canvas.x, y=position_canvas.y-20)
 
+            canvas_epsilon = tk.Canvas(self.root, width=100, height=20, bg="#0000CC", highlightthickness=0)
+            canvas_epsilon.create_text(50, 10, text=f"Epsilon: {self.espilon.value}", fill="#FFFFFF", font=("Arial", 15))
+            canvas_epsilon.place(x=position_canvas.x+120, y=position_canvas.y-20)
+
             canvas_grid = tk.Canvas(self.root, width=self.size_canvas.width, height=self.size_canvas.height, bg="#009900", highlightthickness=0)
             for snake_coordinate in snake_coordinates:
                 canvas_grid.create_rectangle(snake_coordinate.x*self.pixel_size, snake_coordinate.y*self.pixel_size, (snake_coordinate.x+1)*self.pixel_size, (snake_coordinate.y+1)*self.pixel_size, outline="#000066", fill="#000066", width=0)
@@ -59,21 +67,25 @@ class tkinter_test:
         score = shared_memory[-1]
         return snake_coordinates, apple_coordinate, score
 
-def generate_shared_memory(env_data):
+def generate_shared_memory(env_data, epsilon):
     while True:
         env_data.put((1,2,2,2,-2,-2,7,7,1))
+        epsilon.value = np.random.random()
         time.sleep(2)
         env_data.put((0,2,1,2,-2,-2,7,7,1))
+        epsilon.value = np.random.random()
         time.sleep(2)
         env_data.put((0,3,0,2,-2,-2,7,7,1))
+        epsilon.value = np.random.random()
         time.sleep(2)
 
 if __name__ == '__main__':
     position_canvas = Coordinates(20, 20)
     env_data = mp.Queue()
+    epsilon = mp.Value('d', 0.1)
 
-    p_generator = mp.Process(target=generate_shared_memory, args=(env_data,))
-    p_display = mp.Process(target=tkinter_test, args=(env_data,position_canvas))
+    p_generator = mp.Process(target=generate_shared_memory, args=(env_data,epsilon))
+    p_display = mp.Process(target=tkinter_test, args=(env_data,epsilon,position_canvas))
 
     p_generator.start()
     p_display.start()
