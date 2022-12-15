@@ -38,7 +38,7 @@
 * The graphic part is :
 ![v1Graphics](https://user-images.githubusercontent.com/95492416/207930043-bb5f076c-9453-42d3-ad39-f5298fbe3e77.png)
 
-* The result is insane with a score of **11 in about 20 games** whereas the others which have in about 80 games (1st : efficient but slow) and 100 games (2nd (book) : bit less efficient but much faster. I used a 8x8 grid.
+* **The result is insane** with a score of **11 in about 20 games** whereas the others which have in about 80 games (1st : efficient but slow) and 100 games (2nd (book) : bit less efficient but much faster. I used a 10x10 grid.
 
 ## Previous version
 
