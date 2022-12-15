@@ -16,6 +16,9 @@ class Direction(Enum):
 class Environment:
     def __init__(self, size_grid):
         self.size_grid = size_grid
+
+        self.max_speed = False
+
         self.reset()
 
     def reset(self):
@@ -24,22 +27,15 @@ class Environment:
         self.score = 0
         self.interation = 0
 
-    def run(self, shared_list):
-        while True:
-            self.play(1)
-            for idx, snake_coordinate in enumerate(self.snake.snake_coordinates):
-                shared_list[2*idx] = snake_coordinate.x
-                shared_list[2*idx+1] = snake_coordinate.y
-            shared_list[-3] = self.apple.apple_coordinate.x
-            shared_list[-2] = self.apple.apple_coordinate.y
-            shared_list[-1] = self.score
-            time.sleep(8)
-
     def play(self, action):
         # update or reset variables
         self.interation += 1
         reward = 0
         done = False
+
+        # game speed
+        if not self.max_speed:
+            time.sleep(0.2)
 
         # move snake
         self.snake.move(action)
@@ -84,13 +80,20 @@ class Environment:
 class Snake:
     def __init__(self, size_grid):
         self.size_grid = size_grid
+        self.random_init = False
         self.init()
 
     def init(self):
-        self.length = 1
-        self.direction = Direction(np.random.randint(1,5))
-        self.snake_coordinates = [Coordinates(np.random.randint(1,self.size_grid.width-1),np.random.randint(1,self.size_grid.height-1))]
-        self.old_tail_coordinate = self.snake_coordinates[-1]
+        if self.random_init:
+            self.create_random_snake()
+        else:
+            self.length = 1
+            self.direction = Direction(np.random.randint(1,5))
+            self.snake_coordinates = [Coordinates(np.random.randint(1,self.size_grid.width-1),np.random.randint(1,self.size_grid.height-1))]
+            self.old_tail_coordinate = self.snake_coordinates[-1]
+
+    def create_random_snake(self):
+        pass
 
     def move(self, action):
         # [straight, right, left]

@@ -2,10 +2,9 @@ import torch
 import numpy as np
 from collections import deque, namedtuple
 from environments import Environment, Direction, Coordinates, Size_grid, Size_screen
-import torch
 import torch.nn as nn
 import torch.optim as optim
-from helper import Plot
+from helper import Graphics
 import time
 
 HISTORY_SIZE = 100_000
@@ -72,18 +71,12 @@ class DQN_trainer:
         else:
             batch = self.exp_buffer.sample(BATCH_SIZE)
         states, actions, rewards, dones, next_states = batch
-        # print('---------------------------------')
-        # print("-----------------------")
         states = torch.tensor(states, dtype=torch.float)
         actions = torch.tensor(actions, dtype=torch.float)
-        # print("actions: ", actions)
-        # print("Qvalues: ", self.model_network(states))
         rewards = torch.tensor(rewards, dtype=torch.float)
         next_states = torch.tensor(next_states, dtype=torch.float)
         dones = torch.ByteTensor(dones)
         state_action_values = self.model_network(states).gather(1, torch.argmax(actions, dim=1).unsqueeze(1)).squeeze(1)
-        # print("state_action_values bad: ", self.model_network(states).max(1)[0])
-        # print("state_action_values: ", state_action_values)
         next_state_values = self.model_target_network(next_states).max(1)[0]
         next_state_values[dones] = 0.0
         next_state_values = next_state_values.detach()
@@ -181,34 +174,39 @@ class Agent:
 
 class Training:
     def __init__(self):
-        self.exp_buffer = ExperienceBuffer(HISTORY_SIZE)
         self.size_grid = Size_grid(10, 10)
+
+        self.exp_buffer = ExperienceBuffer(HISTORY_SIZE)
         self.agent = Agent(self.exp_buffer, self.size_grid)
         self.model_network = DQN(11, 256, 3) #128, 512, 3
         self.model_target_network = DQN(11, 256, 3) #128, 512, 3
         self.model_trainer = DQN_trainer(self.model_network, self.model_target_network, self.exp_buffer)
-        # self.plotC = Plot()
 
         self.epoch = 0 
         self.best_score = 0
+        self.epsilon = EPSILON_START
+        self.time = time.time()
+
+        self.graphics = Graphics(self.size_grid, self.agent.env, self.epsilon, self.best_score, self.epoch, self.time)
 
         # self.load()
 
     def train(self):
         while True:
             self.epoch += 1
-            epsilon = max(EPSILON_END, EPSILON_START - self.epoch * EPSILON_DECAY)
-            print("---------------------")
-            start = time.perf_counter()
-            score = self.agent.play_step(self.model_network, epsilon)
-            end = time.perf_counter()
-            print("Time agent : ", end - start)
+            self.epsilon = max(EPSILON_END, EPSILON_START - self.epoch * EPSILON_DECAY)
+            # print("---------------------")
+            # start = time.perf_counter()
+            score = self.agent.play_step(self.model_network, self.epsilon)
+            # end = time.perf_counter()
+            # print("Time agent : ", end - start)
             self.model_trainer.update_model_network()
-            print("Time model : ", time.perf_counter() - end)
+            # print("Time model : ", time.perf_counter() - end)
 
             # self.plotC.update_lists(score, self.epoch)
+            # self.graphics.update_graphics()
             
-            print('Game', self.epoch, 'Score', score, 'Record:', self.best_score, 'Epsilon:', epsilon)
+            print('Game', self.epoch, 'Score', score, 'Record:', self.best_score, 'Epsilon:', self.epsilon)
 
             if score > self.best_score:
                 self.best_score = score
