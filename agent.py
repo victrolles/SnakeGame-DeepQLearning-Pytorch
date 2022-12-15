@@ -72,18 +72,12 @@ class DQN_trainer:
         else:
             batch = self.exp_buffer.sample(BATCH_SIZE)
         states, actions, rewards, dones, next_states = batch
-        # print('---------------------------------')
-        # print("-----------------------")
         states = torch.tensor(states, dtype=torch.float)
         actions = torch.tensor(actions, dtype=torch.float)
-        # print("actions: ", actions)
-        # print("Qvalues: ", self.model_network(states))
         rewards = torch.tensor(rewards, dtype=torch.float)
         next_states = torch.tensor(next_states, dtype=torch.float)
         dones = torch.ByteTensor(dones)
         state_action_values = self.model_network(states).gather(1, torch.argmax(actions, dim=1).unsqueeze(1)).squeeze(1)
-        # print("state_action_values bad: ", self.model_network(states).max(1)[0])
-        # print("state_action_values: ", state_action_values)
         next_state_values = self.model_target_network(next_states).max(1)[0]
         next_state_values[dones] = 0.0
         next_state_values = next_state_values.detach()
