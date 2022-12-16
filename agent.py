@@ -25,7 +25,7 @@ EPSILON_DECAY = 0.001 #0.00001
 SYNC_TARGET_EPOCH = 100
 
 Experience = namedtuple('Experience', ('state', 'action', 'reward', 'done', 'next_state'))
-Game_data = namedtuple('Game_data', ('idx_env', 'snake_coordinates', 'apple_coordinate', 'score', 'best_score', 'nbr_games'))
+Game_data = namedtuple('Game_data', ('idx_env', 'done', 'snake_coordinates', 'apple_coordinate', 'score', 'best_score', 'nbr_games'))
 
 class ExperienceMemory:
     def __init__(self, capacity):
@@ -60,9 +60,8 @@ class DQN(nn.Module):
     def forward(self, x):
         return self.fully_connected_layers(x)
         
-# (target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, best_score, espilon, time))
 class DQN_trainer:
-    def __init__(self, model_network, model_target_network, exp_buffer, epoch, epsilon):
+    def __init__(self, model_network, model_target_network, exp_buffer, epoch, epsilon, loss):
         # shared networks
         self.model_network = model_network
         self.model_target_network = model_target_network
@@ -73,6 +72,7 @@ class DQN_trainer:
         ## mp.Value
         self.epoch = epoch
         self.epsilon = epsilon
+        self.loss_value = loss
         # local variables
         self.optimizer = optim.Adam(self.model_network.parameters(), lr=LR)
         self.loss = None
@@ -111,6 +111,7 @@ class DQN_trainer:
 
         expected_state_action_values = next_state_values * GAMMA + rewards
         self.loss = self.criterion(state_action_values, expected_state_action_values)
+        self.loss_value.value = self.loss.item()
         self.loss.backward()
         self.optimizer.step()
 
@@ -223,8 +224,7 @@ class Agent:
 
             exp = Experience(current_state, action, reward, done, next_state)
             self.exp_buffer.put(exp)
-
-            data = Game_data(self.index, self.env.snake.snake_coordinates, self.env.apple.apple_coordinate, score, self.best_score, self.game_nbr)
+            data = Game_data(self.index, done, self.env.snake.snake_coordinates, self.env.apple.apple_coordinate, score, self.best_score, self.game_nbr)
             self.game_data_buffer.put(data)
 
             # game speed
@@ -333,10 +333,11 @@ def main():
     game_data_buffer = mp.Queue(maxsize=BUFFER_SIZE)
 
     epsilon = mp.Value('d', EPSILON_START)
+    time = mp.Value('d', 0)
+    loss = mp.Value('d', 0)
 
     epoch = mp.Value('i', 0)
     best_score = mp.Value('i', 0)
-    time = mp.Value('d', 0)
 
     speed = mp.Value('b', 0)
     random_init_snake = mp.Value('b', 0)
@@ -347,8 +348,8 @@ def main():
         p_env = mp.Process(target=Agent, args=(i, size_grid, model_network, exp_buffer, game_data_buffer, epsilon, speed, random_init_snake))
         p_env.start()
         processes.append(p_env)
-    p_trainer = mp.Process(target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, epsilon))
-    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, time, speed, random_init_snake))
+    p_trainer = mp.Process(target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, epsilon, loss))
+    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, time, speed, random_init_snake, loss))
     p_trainer.start()
     p_graphic.start()
     processes.append(p_trainer)
