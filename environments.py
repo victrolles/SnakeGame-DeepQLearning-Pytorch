@@ -132,9 +132,12 @@ class Apple:
         self.move()
 
     def move(self):
+        good = True
         while True:
+            good = True
             self.apple_coordinate = Coordinates(np.random.randint(self.size_grid.width), np.random.randint(self.size_grid.height))
             for snake_coordinate in self.snake_coordinates:
                 if self.apple_coordinate == snake_coordinate:
-                    continue
-            break
+                    good = False
+            if good:
+                break

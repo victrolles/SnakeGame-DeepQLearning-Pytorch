@@ -4,6 +4,7 @@ import torch.optim as optim
 import torch.multiprocessing as mp
 import numpy as np
 import time
+import copy
 
 from collections import deque, namedtuple
 
@@ -125,7 +126,7 @@ class DQN_trainer:
 
 class Agent:
 
-    def __init__(self, index, size_grid, model_network, exp_buffer, game_data_buffer, espilon, speed, random_init_snake):
+    def __init__(self, index, size_grid, model_network, exp_buffer, game_data_buffer, espilon, speed, random_init_snake, epsilon_0):
         # constant variables
         self.index = index
         self.size_grid = size_grid
@@ -142,6 +143,7 @@ class Agent:
         self.epsilon = espilon
         self.speed = speed
         self.random_init_snake = random_init_snake
+        self.epsilon_0 = epsilon_0
 
         # local variables
         # env
@@ -201,7 +203,7 @@ class Agent:
     def get_action(self, state):
         # Espilon-Greedy: tradeoff exploration / exploitation
         final_move = [0,0,0]
-        if np.random.random() < self.epsilon.value:
+        if np.random.random() < self.epsilon.value and not self.epsilon_0.value:
             move = np.random.randint(0, 2)
             final_move[move] = 1
         else:
@@ -228,13 +230,12 @@ class Agent:
             self.game_data_buffer.put(data)
 
             # game speed
-            time.sleep(0.5)
-            # if not self.speed.value:
-            #     time.sleep(0.5)
+            if not self.speed.value:
+                time.sleep(0.5)
 
             if done:
                 self.env.reset()
-                self.env.snake.random_init = self.random_init_snake.value
+                self.env.snake.random_init = copy.copy(self.random_init_snake.value)
                 self.game_nbr += 1
                 if score > self.best_score:
                     self.best_score = score
@@ -341,15 +342,16 @@ def main():
 
     speed = mp.Value('b', 0)
     random_init_snake = mp.Value('b', 0)
+    epsilon_0 = mp.Value('b', 0)
 
     processes = []
 
     for i in range(4):
-        p_env = mp.Process(target=Agent, args=(i, size_grid, model_network, exp_buffer, game_data_buffer, epsilon, speed, random_init_snake))
+        p_env = mp.Process(target=Agent, args=(i, size_grid, model_network, exp_buffer, game_data_buffer, epsilon, speed, random_init_snake, epsilon_0))
         p_env.start()
         processes.append(p_env)
     p_trainer = mp.Process(target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, epsilon, loss))
-    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, start_time, speed, random_init_snake, loss))
+    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, start_time, speed, random_init_snake, loss, epsilon_0))
     p_trainer.start()
     p_graphic.start()
     processes.append(p_trainer)

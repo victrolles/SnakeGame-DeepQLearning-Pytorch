@@ -1,12 +1,7 @@
 import numpy as np
 from collections import namedtuple
 
-Test = namedtuple('Test', ['a', 'b', 'done'])
+list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
-test = Test(1, 2, True)
-for _ in range(10):
-    if test.done:
-        print('done')
-        test = test._replace(done=False)
-    else:
-        print('not done')
+if list:
+    print("List is not empty")
