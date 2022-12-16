@@ -333,7 +333,7 @@ def main():
     game_data_buffer = mp.Queue(maxsize=BUFFER_SIZE)
 
     epsilon = mp.Value('d', EPSILON_START)
-    time = mp.Value('d', 0)
+    start_time = mp.Value('d', time.time())
     loss = mp.Value('d', 0)
 
     epoch = mp.Value('i', 0)
@@ -349,7 +349,7 @@ def main():
         p_env.start()
         processes.append(p_env)
     p_trainer = mp.Process(target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, epsilon, loss))
-    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, time, speed, random_init_snake, loss))
+    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, start_time, speed, random_init_snake, loss))
     p_trainer.start()
     p_graphic.start()
     processes.append(p_trainer)

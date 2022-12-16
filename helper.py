@@ -20,7 +20,7 @@ class Plot:
         self.fig, (self.graph_scores, self.graph_loss) = plt.subplots(1, 2, figsize=(8, 4))
         self.fig.suptitle('Learning Curves : Training')
 
-        self.list_scores_env0 = [0]
+        self.list_scores = [[0], [0], [0], [0]]
         self.list_loss = [0]
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
@@ -29,9 +29,11 @@ class Plot:
     def update_training_data(self):
         if self.loss.value != self.list_loss[-1]:
             self.list_loss.append(self.loss.value)
-        if self.game_data[0].done:
-            self.list_scores_env0.append(self.game_data[0].score)
-            self.game_data[0] = self.game_data[0]._replace(done=False)
+
+        for i in range(4):
+            if self.game_data[i].done:
+                self.list_scores[i].append(self.game_data[i].score)
+                self.game_data[i] = self.game_data[i]._replace(done=False)
 
     def update_plot(self):
         self.update_training_data()
@@ -40,10 +42,16 @@ class Plot:
         self.graph_scores.set_title('Scores :')
         self.graph_scores.set_xlabel('Number of Games')
         self.graph_scores.set_ylabel('score')
-        self.graph_scores.plot(self.list_scores_env0)
+        self.graph_scores.plot(self.list_scores[0])
+        self.graph_scores.plot(self.list_scores[1])
+        self.graph_scores.plot(self.list_scores[2])
+        self.graph_scores.plot(self.list_scores[3])
         self.graph_scores.set_ylim(ymin=0)
-        self.graph_scores.text(len(self.list_scores_env0)-1, self.list_scores_env0[-1], str(self.list_scores_env0[-1]))
-        self.graph_scores.legend(['score'])
+        self.graph_scores.text(len(self.list_scores[0])-1, self.list_scores[0][-1], str(self.list_scores[0][-1]))
+        self.graph_scores.text(len(self.list_scores[1])-1, self.list_scores[1][-1], str(self.list_scores[1][-1]))
+        self.graph_scores.text(len(self.list_scores[2])-1, self.list_scores[2][-1], str(self.list_scores[2][-1]))
+        self.graph_scores.text(len(self.list_scores[3])-1, self.list_scores[3][-1], str(self.list_scores[3][-1]))
+        self.graph_scores.legend(['env 0', 'env 1', 'env 2', 'env 3'])
 
         self.graph_loss.clear()
         self.graph_loss.set_title('Loss :')
@@ -99,12 +107,10 @@ class Graphics:
 
     def update_graphics(self):
         while True:
-            start = time.time()
             self.update_game_data()
             self.display_all_environments()
             self.plot.update_plot()
             self.display_training_infos()
-            print("time : ", time.time()-start)
             time.sleep(0.03)
 
     def update_game_data(self):
@@ -147,9 +153,9 @@ class Graphics:
         canvas_training_infos.create_text(125, 10, text=f"Epoch: {self.epoch.value}, Epsilon: {self.espilon.value:.3f}", fill="#FFFFFF", font=("Arial", 11))
         canvas_training_infos.place(x=755, y=30)
 
-        # canvas_training_infos = tk.Canvas(self.root, width=250, height=20, bg="#0000CC", highlightthickness=0)
-        # canvas_training_infos.create_text(125, 10, text=f"Speed: {self.speed.value} Random init snake: {self.random_init_snake.value}", fill="#FFFFFF", font=("Arial", 11))
-        # canvas_training_infos.place(x=755, y=90)
+        canvas_training_infos = tk.Canvas(self.root, width=250, height=20, bg="#0000CC", highlightthickness=0)
+        canvas_training_infos.create_text(125, 10, text=f"Time: {(time.time() - self.time.value):.1f}", fill="#FFFFFF", font=("Arial", 11))
+        canvas_training_infos.place(x=755, y=60)
 
     def draw_grid(self, canvas_grid):
         for i in range(0,self.size_grid.width+1):
@@ -165,59 +171,3 @@ class Graphics:
     def draw_apple(self, idx, canvas_grid):
         canvas_grid.create_rectangle(self.game_data[idx].apple_coordinate.x*self.pixel_size, self.game_data[idx].apple_coordinate.y*self.pixel_size, (self.game_data[idx].apple_coordinate.x+1)*self.pixel_size, (self.game_data[idx].apple_coordinate.y+1)*self.pixel_size, outline="#FF0000", fill="#FF0000", width=0)
         return canvas_grid
-
-
-
-# class Plot:
-#     def __init__(self):
-#         plt.ion()
-
-#         # self.fig, (self.ax1, self.ax2) = plt.subplots(1,2, figsize=(14,6))
-#         self.fig, self.ax1 = plt.subplots(1, figsize=(14,6))
-#         self.fig.suptitle('Learning Curves : Training')
-#         # self.fig.canvas.draw()
-#         # self.fig.canvas.flush_events()
-#         plt.ioff()
-#         plt.close()
-
-#         self.list_scores = []
-#         self.list_mean_scores = []
-#         self.list_mean_10_scores = []
-#         self.total_score = 0
-#         self.epoch = 0
-
-#     def start_plotting(self):
-#         plt.ion()
-
-#     def stop_plotting(self):
-#         plt.ioff()
-#         plt.close()
-
-#     def update_lists(self, scores, epoch):
-#         self.epoch = epoch
-#         self.total_score += scores
-
-#         self.list_scores.append(scores)
-#         self.list_mean_scores.append(sum(self.list_scores) / len(self.list_scores))
-#         self.list_mean_10_scores.append(np.mean(self.list_scores[-50:]))
-
-#         self.update_plot()
-
-#     # def update_plot(self, scores, mean_scores, mean_10_scores, train_loss):
-#     def update_plot(self):
-        
-#         self.ax1.clear()
-#         self.ax1.set_title('Scores :')
-#         self.ax1.set_xlabel('Number of Games')
-#         self.ax1.set_ylabel('score')
-#         self.ax1.plot(self.list_scores)
-#         self.ax1.plot(self.list_mean_scores)
-#         self.ax1.plot(self.list_mean_10_scores)
-#         self.ax1.set_ylim(ymin=0)
-#         self.ax1.text(len(self.list_scores)-1, self.list_scores[-1], str(self.list_scores[-1]))
-#         self.ax1.text(len(self.list_mean_scores)-1, self.list_mean_scores[-1], str(self.list_mean_scores[-1]))
-#         self.ax1.text(len(self.list_mean_10_scores)-1, self.list_mean_10_scores[-1], str(self.list_mean_10_scores[-1]))
-#         self.ax1.legend(['score', 'mean_score', 'tendancy'])       
-        
-#         self.fig.canvas.draw()
-#         self.fig.canvas.flush_events()
