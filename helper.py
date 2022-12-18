@@ -82,7 +82,7 @@ class Plot:
         
 
 class Graphics:
-    def __init__(self, size_grid, game_data_buffer, espilon, best_score, epoch, time, speed, random_init_snake, loss, epsilon_0):
+    def __init__(self, size_grid, game_data_buffer, espilon, best_score, epoch, time, speed, random_init_snake, loss, epsilon_0, end_process):
         # constant variables
         self.size_screen = Size_screen(1500, 600)
         self.size_grid = size_grid
@@ -102,6 +102,7 @@ class Graphics:
         self.speed = speed
         self.random_init_snake = random_init_snake
         self.epsilon_0 = epsilon_0
+        self.end_process = end_process
 
         # local variables
         self.is_display_envs = True
@@ -240,7 +241,7 @@ class Graphics:
 
     def exit(self):
         self.root.destroy()
-        exit()
+        self.end_process.value = True
 
     def update_graphics(self):
         self.init_canvas()
@@ -264,6 +265,9 @@ class Graphics:
             iter+=1
             if iter > 1000:
                 iter = 0
+
+            if self.end_process.value:
+                break
             
 
     def update_game_data(self):
@@ -278,10 +282,9 @@ class Graphics:
                 self.game_data[2] = element 
             elif element.idx_env == 3:
                 self.game_data[3] = element
-        # change best score
-        for i in range(4):
-            if self.game_data[i].best_score > self.best_score.value:
-                self.best_score.value = copy.copy(self.game_data[i].score)
+            # change best score
+            if element.score > self.best_score.value:
+                self.best_score.value = element.score
 
     def display_all_environments(self):
         for idx in range(4):

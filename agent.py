@@ -62,7 +62,7 @@ class DQN(nn.Module):
         return self.fully_connected_layers(x)
         
 class DQN_trainer:
-    def __init__(self, model_network, model_target_network, exp_buffer, epoch, epsilon, loss):
+    def __init__(self, model_network, model_target_network, exp_buffer, epoch, epsilon, loss, epsilon_0, best_score, end_process):
         # shared networks
         self.model_network = model_network
         self.model_target_network = model_target_network
@@ -73,24 +73,38 @@ class DQN_trainer:
         ## mp.Value
         self.epoch = epoch
         self.epsilon = epsilon
+        self.epsilon_0 = epsilon_0
         self.loss_value = loss
+        self.best_score = best_score
+        self.end_process = end_process
         # local variables
         self.optimizer = optim.Adam(self.model_network.parameters(), lr=LR)
         self.loss = None
         self.criterion = nn.MSELoss()
         self.exp_memory = ExperienceMemory(HISTORY_SIZE)
 
+        #load models
+        # self.load_model()
+
         # Loop
         self.train_step()
 
     def train_step(self):
+        current_best_score = 0
         while True:
             self.fillin_exp_memory()
             self.update_model_network()
             self.sync_target_network()
             self.epoch.value += 1
-            self.epsilon.value = max(EPSILON_END, EPSILON_START - self.epoch.value * EPSILON_DECAY)
-            # print('Epoch', self.epoch.value, 'Epsilon:', self.epsilon.value)
+            if self.epsilon_0.value:
+                self.epsilon.value = 0
+            else:
+                self.epsilon.value = max(EPSILON_END, EPSILON_START - self.epoch.value * EPSILON_DECAY)
+            if self.best_score.value > current_best_score:
+                current_best_score = self.best_score.value
+                self.save_model()
+            if self.end_process.value:
+                break
             time.sleep(0.1)
 
     def update_model_network(self):
@@ -124,9 +138,27 @@ class DQN_trainer:
         if self.epoch.value % SYNC_TARGET_EPOCH == 0:
             self.model_target_network.load_state_dict(self.model_network.state_dict())
 
+    def save_model(self):
+        torch.save({
+            'model_network_state_dict': self.model_network.state_dict(),
+            'model_target_network_state_dict': self.model_target_network.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'best_score': self.best_score.value,
+        }, 'model.pth')
+
+    def load_model(self):
+        checkpoint = torch.load('model.pth')
+        self.model_network.load_state_dict(checkpoint['model_network_state_dict'])
+        self.model_target_network.load_state_dict(checkpoint['model_target_network_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.best_score.value = checkpoint['best_score']
+
+        self.model_network.eval()
+        self.model_target_network.eval()
+
 class Agent:
 
-    def __init__(self, index, size_grid, model_network, exp_buffer, game_data_buffer, espilon, speed, random_init_snake, epsilon_0):
+    def __init__(self, index, size_grid, model_network, exp_buffer, game_data_buffer, espilon, speed, random_init_snake, end_process):
         # constant variables
         self.index = index
         self.size_grid = size_grid
@@ -143,11 +175,11 @@ class Agent:
         self.epsilon = espilon
         self.speed = speed
         self.random_init_snake = random_init_snake
-        self.epsilon_0 = epsilon_0
+        self.end_process = end_process
 
         # local variables
         # env
-        self.env = Environment(size_grid)
+        self.env = Environment(size_grid, self.random_init_snake)
         # others
         self.best_score = 0
         self.game_nbr = 0
@@ -203,7 +235,7 @@ class Agent:
     def get_action(self, state):
         # Espilon-Greedy: tradeoff exploration / exploitation
         final_move = [0,0,0]
-        if np.random.random() < self.epsilon.value and not self.epsilon_0.value:
+        if np.random.random() < self.epsilon.value:
             move = np.random.randint(0, 2)
             final_move[move] = 1
         else:
@@ -235,92 +267,13 @@ class Agent:
 
             if done:
                 self.env.reset()
-                self.env.snake.random_init = copy.copy(self.random_init_snake.value)
                 self.game_nbr += 1
                 if score > self.best_score:
                     self.best_score = score
 
-# class Training:
-#     def __init__(self):
-#         self.size_grid = Size_grid(10, 10)
+            if self.end_process.value:
+                break 
 
-#         self.exp_buffer = ExperienceBuffer(HISTORY_SIZE)
-#         self.agent = Agent(self.exp_buffer, self.size_grid)
-#         self.model_network = DQN(11, 256, 3) #128, 512, 3
-#         self.model_target_network = DQN(11, 256, 3) #128, 512, 3
-#         # self.model_network.share_memory()
-#         self.model_trainer = DQN_trainer(self.model_network, self.model_target_network, self.exp_buffer)
-
-#         self.epoch = 0 
-#         self.best_score = 0
-#         self.epsilon = EPSILON_START
-#         self.time = time.time()
-
-#         self.graphics = Graphics(self.size_grid, self.agent.env, self.epsilon, self.best_score, self.epoch, self.time)
-
-#         # self.load()
-
-#     def train(self):
-#         while True:
-#             self.epoch += 1
-#             self.epsilon = max(EPSILON_END, EPSILON_START - self.epoch * EPSILON_DECAY)
-#             # print("---------------------")
-#             # start = time.perf_counter()
-#             score = self.agent.play_step(self.model_network, self.epsilon)
-#             # end = time.perf_counter()
-#             # print("Time agent : ", end - start)
-#             self.model_trainer.update_model_network()
-#             # print("Time model : ", time.perf_counter() - end)
-
-#             # self.plotC.update_lists(score, self.epoch)
-#             # self.graphics.update_graphics()
-            
-#             print('Game', self.epoch, 'Score', score, 'Record:', self.best_score, 'Epsilon:', self.epsilon)
-
-#             if score > self.best_score:
-#                 self.best_score = score
-#                 # self.save()
-            
-#             if self.epoch % SYNC_TARGET_EPOCH == 0:
-#                 self.model_target_network.load_state_dict(self.model_network.state_dict())
-
-            
-
-#     def save(self):
-#         torch.save({
-#             'epoch': self.epoch,
-#             'best_score': self.best_score,
-#             'model_network_state_dict': self.model_network.state_dict(),
-#             'model_target_network_state_dict': self.model_target_network.state_dict(),
-#             'optimizer_state_dict': self.model_trainer.optimizer.state_dict(),
-#             'loss': self.model_trainer.loss,
-#             'exp_buffer': self.exp_buffer,
-#             # 'total_score': self.plotC.total_score,
-#             # 'list_scores': self.plotC.list_scores,
-#             # 'list_mean_scores': self.plotC.list_mean_scores,
-#             # 'list_mean_10_scores': self.plotC.list_mean_10_scores,
-#         }, 'model/model.pth')
-
-#     def load(self):
-#         checkpoint = torch.load('model/model.pth')
-
-#         self.epoch = checkpoint['epoch']
-#         self.best_score = checkpoint['best_score']
-
-#         self.model_network.load_state_dict(checkpoint['model_network_state_dict'])
-#         self.model_target_network.load_state_dict(checkpoint['model_target_network_state_dict'])
-#         self.model_trainer.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-#         self.model_trainer.loss = checkpoint['loss']
-#         self.exp_buffer = checkpoint['exp_buffer']
-
-#         # self.plotC.epoch = checkpoint['epoch']
-#         # self.plotC.total_score = checkpoint['total_score']
-#         # self.plotC.list_scores = checkpoint['list_scores']
-#         # self.plotC.list_mean_scores = checkpoint['list_mean_scores']
-#         # self.plotC.list_mean_10_scores = checkpoint['list_mean_10_scores']
-
-#         self.model_network.eval()
-#         self.model_target_network.eval()
 
 def main():
     size_grid = Size_grid(10, 10)
@@ -343,15 +296,16 @@ def main():
     speed = mp.Value('b', 0)
     random_init_snake = mp.Value('b', 0)
     epsilon_0 = mp.Value('b', 0)
+    end_process = mp.Value('b', 0)
 
     processes = []
 
     for i in range(4):
-        p_env = mp.Process(target=Agent, args=(i, size_grid, model_network, exp_buffer, game_data_buffer, epsilon, speed, random_init_snake, epsilon_0))
+        p_env = mp.Process(target=Agent, args=(i, size_grid, model_network, exp_buffer, game_data_buffer, epsilon, speed, random_init_snake, end_process))
         p_env.start()
         processes.append(p_env)
-    p_trainer = mp.Process(target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, epsilon, loss))
-    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, start_time, speed, random_init_snake, loss, epsilon_0))
+    p_trainer = mp.Process(target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, epsilon, loss, epsilon_0, best_score, end_process))
+    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, start_time, speed, random_init_snake, loss, epsilon_0, end_process))
     p_trainer.start()
     p_graphic.start()
     processes.append(p_trainer)

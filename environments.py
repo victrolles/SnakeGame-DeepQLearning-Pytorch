@@ -13,15 +13,14 @@ class Direction(Enum):
     DOWN = 4
 
 class Environment:
-    def __init__(self, size_grid):
+    def __init__(self, size_grid, random_init):
         self.size_grid = size_grid
-
-        self.max_speed = False
+        self.random_init = random_init
 
         self.reset()
 
     def reset(self):
-        self.snake = Snake(self.size_grid)
+        self.snake = Snake(self.size_grid, self.random_init)
         self.apple = Apple(self.snake.snake_coordinates, self.size_grid)
         self.score = 0
         self.interation = 0
@@ -73,22 +72,79 @@ class Environment:
         return False
 
 class Snake:
-    def __init__(self, size_grid):
+    def __init__(self, size_grid, random_init):
         self.size_grid = size_grid
-        self.random_init = False
+        self.random_init = random_init
         self.init()
 
     def init(self):
-        if self.random_init:
+        self.direction = Direction(np.random.randint(1,5))
+        self.snake_coordinates = [Coordinates(np.random.randint(1,self.size_grid.width-2),np.random.randint(1,self.size_grid.height-2))]
+
+        if self.random_init.value:
+            self.length = np.random.randint(25, 30)
+            # average time 0.0002s
             self.create_random_snake()
         else:
             self.length = 1
-            self.direction = Direction(np.random.randint(1,5))
-            self.snake_coordinates = [Coordinates(np.random.randint(1,self.size_grid.width-1),np.random.randint(1,self.size_grid.height-1))]
-            self.old_tail_coordinate = self.snake_coordinates[-1]
+
+        self.old_tail_coordinate = self.snake_coordinates[-1]
 
     def create_random_snake(self):
-        pass
+        # initialize head of the snake
+        unwanted_cells = self.snake_coordinates.copy()
+
+        # initialize 2nd element of the snake
+        if self.direction == Direction.RIGHT:
+            self.snake_coordinates.append(Coordinates(self.snake_coordinates[0].x - 1, self.snake_coordinates[0].y))
+            unwanted_cells.append(self.snake_coordinates[-1])
+            unwanted_cells.append(Coordinates(self.snake_coordinates[0].x + 1, self.snake_coordinates[0].y))
+        elif self.direction == Direction.LEFT:
+            self.snake_coordinates.append(Coordinates(self.snake_coordinates[0].x + 1, self.snake_coordinates[0].y))
+            unwanted_cells.append(self.snake_coordinates[-1])
+            unwanted_cells.append(Coordinates(self.snake_coordinates[0].x - 1, self.snake_coordinates[0].y))
+        elif self.direction == Direction.UP:
+            self.snake_coordinates.append(Coordinates(self.snake_coordinates[0].x, self.snake_coordinates[0].y + 1))
+            unwanted_cells.append(self.snake_coordinates[-1])
+            unwanted_cells.append(Coordinates(self.snake_coordinates[0].x, self.snake_coordinates[0].y - 1))
+        else:
+            self.snake_coordinates.append(Coordinates(self.snake_coordinates[0].x, self.snake_coordinates[0].y - 1))
+            unwanted_cells.append(self.snake_coordinates[-1])
+            unwanted_cells.append(Coordinates(self.snake_coordinates[0].x, self.snake_coordinates[0].y + 1))
+
+        # initialize the rest of the snake
+        succeeded = False
+        while not succeeded:
+            succeeded = True
+            temp_snake_coordinates = self.snake_coordinates.copy()
+            temp_unwanted_cells = unwanted_cells.copy()
+            for _ in range(2, self.length):
+                cells_around = self.get_cells_around(temp_snake_coordinates[-1])
+                index_cell = [0,1,2,3]
+                np.random.shuffle(index_cell)
+                for j in index_cell:
+                    cell = cells_around[j]
+                    if cell not in unwanted_cells and cell.x >= 0 and cell.x < self.size_grid.width and cell.y >= 0 and cell.y < self.size_grid.height:
+                        temp_snake_coordinates.append(cell)
+                        temp_unwanted_cells.append(cell)
+                        break
+                    if j == 3:
+                        succeeded = False
+                        break
+                if not succeeded:
+                    break
+            if succeeded:
+                self.snake_coordinates = temp_snake_coordinates.copy()
+                
+
+    def get_cells_around(self, cell):
+        cells_around = []
+        cells_around.append(Coordinates(cell.x + 1, cell.y))
+        cells_around.append(Coordinates(cell.x - 1, cell.y))
+        cells_around.append(Coordinates(cell.x, cell.y + 1))
+        cells_around.append(Coordinates(cell.x, cell.y - 1))
+
+        return cells_around
 
     def move(self, action):
         # [straight, right, left]
