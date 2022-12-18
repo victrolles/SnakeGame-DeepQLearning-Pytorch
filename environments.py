@@ -87,9 +87,6 @@ class Environment:
         state_grid_frame2[self.apple.apple_coordinate.y, self.apple.apple_coordinate.x] = [0,1]
         state_grid_frame1[self.apple.apple_coordinate.y, self.apple.apple_coordinate.x] = [0,1]
 
-        # print("shape", np.concatenate((state_grid_frame1.reshape((200)), state_grid_frame2.reshape((200)))).shape)
-
-        # print(np.concatenate((state_grid_frame1.reshape((200)), state_grid_frame2.reshape((200)))))
         return np.concatenate((state_grid_frame1.reshape((200)), state_grid_frame2.reshape((200))))
 
 class Snake:

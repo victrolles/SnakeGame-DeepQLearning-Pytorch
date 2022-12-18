@@ -7,7 +7,7 @@ import time
 
 from collections import deque, namedtuple
 
-from environments import Environment, Size_grid
+from environments import Environment, Direction, Coordinates, Size_grid
 from helper import Graphics
 
 
@@ -16,11 +16,11 @@ BATCH_SIZE = 1000
 BUFFER_SIZE = 1000
 
 LR = 0.01 #0.001 #0.01
-GAMMA = 0.95 #0.95 #0.9
+GAMMA = 0.9 #0.95 #0.9
 
 EPSILON_START = 1
 EPSILON_END = 0.01 
-EPSILON_DECAY = 0.00001 #0.00001 #0.001
+EPSILON_DECAY = 0.001 #0.00001 #0.001
 
 SYNC_TARGET_EPOCH = 100
 
@@ -189,51 +189,49 @@ class Agent:
         self.play_step()
 
     def get_state(self):
-        return self.env.get_state_grid()
+        # return self.env.get_state_grid()
 
-        # head = self.env.snake.snake_coordinates[0]
+        head = self.env.snake.snake_coordinates[0]
 
-        # point_l = Coordinates(head.x - 1, head.y)
-        # point_r = Coordinates(head.x + 1, head.y)
-        # point_u = Coordinates(head.x, head.y - 1)
-        # point_d = Coordinates(head.x, head.y + 1)
+        point_l = Coordinates(head.x - 1, head.y)
+        point_r = Coordinates(head.x + 1, head.y)
+        point_u = Coordinates(head.x, head.y - 1)
+        point_d = Coordinates(head.x, head.y + 1)
         
-        # dir_l = self.env.snake.direction == Direction.LEFT
-        # dir_r = self.env.snake.direction == Direction.RIGHT
-        # dir_u = self.env.snake.direction == Direction.UP
-        # dir_d = self.env.snake.direction == Direction.DOWN
+        dir_l = self.env.snake.direction == Direction.LEFT
+        dir_r = self.env.snake.direction == Direction.RIGHT
+        dir_u = self.env.snake.direction == Direction.UP
+        dir_d = self.env.snake.direction == Direction.DOWN
 
-        # danger_s = (dir_r and self.env.is_collision(point_r)) or (dir_l and self.env.is_collision(point_l)) or (dir_u and self.env.is_collision(point_u)) or (dir_d and self.env.is_collision(point_d))
-        # danger_r = (dir_u and self.env.is_collision(point_r)) or (dir_d and self.env.is_collision(point_l)) or (dir_l and self.env.is_collision(point_u)) or (dir_r and self.env.is_collision(point_d))
-        # danger_l = (dir_d and self.env.is_collision(point_r)) or (dir_u and self.env.is_collision(point_l)) or (dir_r and self.env.is_collision(point_u)) or (dir_l and self.env.is_collision(point_d))
+        danger_s = (dir_r and self.env.is_collision(point_r)) or (dir_l and self.env.is_collision(point_l)) or (dir_u and self.env.is_collision(point_u)) or (dir_d and self.env.is_collision(point_d))
+        danger_r = (dir_u and self.env.is_collision(point_r)) or (dir_d and self.env.is_collision(point_l)) or (dir_l and self.env.is_collision(point_u)) or (dir_r and self.env.is_collision(point_d))
+        danger_l = (dir_d and self.env.is_collision(point_r)) or (dir_u and self.env.is_collision(point_l)) or (dir_r and self.env.is_collision(point_u)) or (dir_l and self.env.is_collision(point_d))
 
-        # food_l = self.env.apple.apple_coordinate.x < self.env.snake.snake_coordinates[0].x  # food left
-        # food_r = self.env.apple.apple_coordinate.x > self.env.snake.snake_coordinates[0].x  # food right
-        # food_u = self.env.apple.apple_coordinate.y < self.env.snake.snake_coordinates[0].y  # food up
-        # food_d = self.env.apple.apple_coordinate.y > self.env.snake.snake_coordinates[0].y  # food down
+        food_l = self.env.apple.apple_coordinate.x < self.env.snake.snake_coordinates[0].x  # food left
+        food_r = self.env.apple.apple_coordinate.x > self.env.snake.snake_coordinates[0].x  # food right
+        food_u = self.env.apple.apple_coordinate.y < self.env.snake.snake_coordinates[0].y  # food up
+        food_d = self.env.apple.apple_coordinate.y > self.env.snake.snake_coordinates[0].y  # food down
 
-        # state = [
-        #     #direction
-        #     dir_l,
-        #     dir_r,
-        #     dir_u,
-        #     dir_d,
+        state = [
+            #direction
+            dir_l,
+            dir_r,
+            dir_u,
+            dir_d,
 
-        #     # Food location 
-        #     food_l,
-        #     food_r,
-        #     food_u,
-        #     food_d,
+            # Food location 
+            food_l,
+            food_r,
+            food_u,
+            food_d,
 
-        #     # Possible direction
-        #     danger_l,
-        #     danger_r,
-        #     danger_s
-        #     ]
+            # Possible direction
+            danger_l,
+            danger_r,
+            danger_s
+            ]
 
-        # print("state: ", state)
-        # return np.array(state, dtype=int)
-        # return self.env.state_grid()
+        return np.array(state, dtype=int)
 
     def get_action(self, state):
         # Espilon-Greedy: tradeoff exploration / exploitation
@@ -286,8 +284,8 @@ class Agent:
 def main():
     size_grid = Size_grid(10, 10)
 
-    model_network = DQN(400, 512, 3) #400, 512, 3
-    model_target_network = DQN(400, 512, 3) #400, 512, 3
+    model_network = DQN(11, 256, 3) #400, 512, 3
+    model_target_network = DQN(11, 256, 3) #400, 512, 3
     model_network.share_memory()
     model_target_network.share_memory()
 
