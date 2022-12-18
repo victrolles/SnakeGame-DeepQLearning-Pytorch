@@ -36,7 +36,8 @@
 ![structureprogram](https://user-images.githubusercontent.com/95492416/207930365-45df1074-a2ac-4897-8f6a-cc0c42e7e841.jpg)
 
 * The graphic part is :
-![v1Graphics](https://user-images.githubusercontent.com/95492416/207930043-bb5f076c-9453-42d3-ad39-f5298fbe3e77.png)
+![v2Graphics](https://user-images.githubusercontent.com/95492416/208302227-7112139e-c602-4f4c-bec0-f520c39771b3.png)
+
 
 * **The result is insane** with a score of **11 in about 20 games** whereas the others which have in about 80 games (1st : efficient but slow) and 100 games (2nd (book) : bit less efficient but much faster. I used a 10x10 grid.
 
