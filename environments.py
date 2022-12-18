@@ -71,6 +71,27 @@ class Environment:
 
         return False
 
+    def get_state_grid(self):
+        state_grid_frame1 = np.zeros((self.size_grid.width, self.size_grid.height, 2), dtype=int)
+        state_grid_frame2 = np.zeros((self.size_grid.width, self.size_grid.height, 2), dtype=int)
+
+        for snake_coordinate in self.snake.snake_coordinates:
+            if 0 <= snake_coordinate.x < self.size_grid.width and 0 <= snake_coordinate.y < self.size_grid.height:
+                state_grid_frame1[snake_coordinate.y, snake_coordinate.x] = [1,0]
+        for snake_coordinate in self.snake.snake_coordinates[1:]:
+            if 0 <= snake_coordinate.x < self.size_grid.width and 0 <= snake_coordinate.y < self.size_grid.height:
+                state_grid_frame2[snake_coordinate.y, snake_coordinate.x] = [1,0]
+        if 0 <= self.snake.snake_coordinates[-1].x < self.size_grid.width and 0 <= self.snake.snake_coordinates[-1].y < self.size_grid.height:
+            state_grid_frame2[self.snake.snake_coordinates[-1].y, self.snake.snake_coordinates[-1].x] = [1,0]
+
+        state_grid_frame2[self.apple.apple_coordinate.y, self.apple.apple_coordinate.x] = [0,1]
+        state_grid_frame1[self.apple.apple_coordinate.y, self.apple.apple_coordinate.x] = [0,1]
+
+        # print("shape", np.concatenate((state_grid_frame1.reshape((200)), state_grid_frame2.reshape((200)))).shape)
+
+        # print(np.concatenate((state_grid_frame1.reshape((200)), state_grid_frame2.reshape((200)))))
+        return np.concatenate((state_grid_frame1.reshape((200)), state_grid_frame2.reshape((200))))
+
 class Snake:
     def __init__(self, size_grid, random_init):
         self.size_grid = size_grid

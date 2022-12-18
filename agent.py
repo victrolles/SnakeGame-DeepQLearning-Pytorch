@@ -4,11 +4,10 @@ import torch.optim as optim
 import torch.multiprocessing as mp
 import numpy as np
 import time
-import copy
 
 from collections import deque, namedtuple
 
-from environments import Environment, Direction, Coordinates, Size_grid
+from environments import Environment, Size_grid
 from helper import Graphics
 
 
@@ -16,12 +15,12 @@ HISTORY_SIZE = 100_000
 BATCH_SIZE = 1000
 BUFFER_SIZE = 1000
 
-LR = 0.01 #0.001
-GAMMA = 0.9 #0.95
+LR = 0.01 #0.001 #0.01
+GAMMA = 0.95 #0.95 #0.9
 
 EPSILON_START = 1
-EPSILON_END = 0.01
-EPSILON_DECAY = 0.001 #0.00001
+EPSILON_END = 0.01 
+EPSILON_DECAY = 0.00001 #0.00001 #0.001
 
 SYNC_TARGET_EPOCH = 100
 
@@ -62,7 +61,7 @@ class DQN(nn.Module):
         return self.fully_connected_layers(x)
         
 class DQN_trainer:
-    def __init__(self, model_network, model_target_network, exp_buffer, epoch, epsilon, loss, epsilon_0, best_score, end_process):
+    def __init__(self, model_network, model_target_network, exp_buffer, epoch, epsilon, loss, epsilon_0, best_score, end_process, speed):
         # shared networks
         self.model_network = model_network
         self.model_target_network = model_target_network
@@ -77,6 +76,7 @@ class DQN_trainer:
         self.loss_value = loss
         self.best_score = best_score
         self.end_process = end_process
+        self.speed = speed
         # local variables
         self.optimizer = optim.Adam(self.model_network.parameters(), lr=LR)
         self.loss = None
@@ -105,7 +105,8 @@ class DQN_trainer:
                 self.save_model()
             if self.end_process.value:
                 break
-            time.sleep(0.1)
+            if not self.speed.value:
+                time.sleep(0.1)
 
     def update_model_network(self):
         self.optimizer.zero_grad()
@@ -188,48 +189,50 @@ class Agent:
         self.play_step()
 
     def get_state(self):
-        head = self.env.snake.snake_coordinates[0]
+        return self.env.get_state_grid()
 
-        point_l = Coordinates(head.x - 1, head.y)
-        point_r = Coordinates(head.x + 1, head.y)
-        point_u = Coordinates(head.x, head.y - 1)
-        point_d = Coordinates(head.x, head.y + 1)
+        # head = self.env.snake.snake_coordinates[0]
+
+        # point_l = Coordinates(head.x - 1, head.y)
+        # point_r = Coordinates(head.x + 1, head.y)
+        # point_u = Coordinates(head.x, head.y - 1)
+        # point_d = Coordinates(head.x, head.y + 1)
         
-        dir_l = self.env.snake.direction == Direction.LEFT
-        dir_r = self.env.snake.direction == Direction.RIGHT
-        dir_u = self.env.snake.direction == Direction.UP
-        dir_d = self.env.snake.direction == Direction.DOWN
+        # dir_l = self.env.snake.direction == Direction.LEFT
+        # dir_r = self.env.snake.direction == Direction.RIGHT
+        # dir_u = self.env.snake.direction == Direction.UP
+        # dir_d = self.env.snake.direction == Direction.DOWN
 
-        danger_s = (dir_r and self.env.is_collision(point_r)) or (dir_l and self.env.is_collision(point_l)) or (dir_u and self.env.is_collision(point_u)) or (dir_d and self.env.is_collision(point_d))
-        danger_r = (dir_u and self.env.is_collision(point_r)) or (dir_d and self.env.is_collision(point_l)) or (dir_l and self.env.is_collision(point_u)) or (dir_r and self.env.is_collision(point_d))
-        danger_l = (dir_d and self.env.is_collision(point_r)) or (dir_u and self.env.is_collision(point_l)) or (dir_r and self.env.is_collision(point_u)) or (dir_l and self.env.is_collision(point_d))
+        # danger_s = (dir_r and self.env.is_collision(point_r)) or (dir_l and self.env.is_collision(point_l)) or (dir_u and self.env.is_collision(point_u)) or (dir_d and self.env.is_collision(point_d))
+        # danger_r = (dir_u and self.env.is_collision(point_r)) or (dir_d and self.env.is_collision(point_l)) or (dir_l and self.env.is_collision(point_u)) or (dir_r and self.env.is_collision(point_d))
+        # danger_l = (dir_d and self.env.is_collision(point_r)) or (dir_u and self.env.is_collision(point_l)) or (dir_r and self.env.is_collision(point_u)) or (dir_l and self.env.is_collision(point_d))
 
-        food_l = self.env.apple.apple_coordinate.x < self.env.snake.snake_coordinates[0].x  # food left
-        food_r = self.env.apple.apple_coordinate.x > self.env.snake.snake_coordinates[0].x  # food right
-        food_u = self.env.apple.apple_coordinate.y < self.env.snake.snake_coordinates[0].y  # food up
-        food_d = self.env.apple.apple_coordinate.y > self.env.snake.snake_coordinates[0].y  # food down
+        # food_l = self.env.apple.apple_coordinate.x < self.env.snake.snake_coordinates[0].x  # food left
+        # food_r = self.env.apple.apple_coordinate.x > self.env.snake.snake_coordinates[0].x  # food right
+        # food_u = self.env.apple.apple_coordinate.y < self.env.snake.snake_coordinates[0].y  # food up
+        # food_d = self.env.apple.apple_coordinate.y > self.env.snake.snake_coordinates[0].y  # food down
 
-        state = [
-            #direction
-            dir_l,
-            dir_r,
-            dir_u,
-            dir_d,
+        # state = [
+        #     #direction
+        #     dir_l,
+        #     dir_r,
+        #     dir_u,
+        #     dir_d,
 
-            # Food location 
-            food_l,
-            food_r,
-            food_u,
-            food_d,
+        #     # Food location 
+        #     food_l,
+        #     food_r,
+        #     food_u,
+        #     food_d,
 
-            # Possible direction
-            danger_l,
-            danger_r,
-            danger_s
-            ]
+        #     # Possible direction
+        #     danger_l,
+        #     danger_r,
+        #     danger_s
+        #     ]
 
         # print("state: ", state)
-        return np.array(state, dtype=int)
+        # return np.array(state, dtype=int)
         # return self.env.state_grid()
 
     def get_action(self, state):
@@ -261,9 +264,14 @@ class Agent:
             data = Game_data(self.index, done, self.env.snake.snake_coordinates, self.env.apple.apple_coordinate, score, self.best_score, self.game_nbr)
             self.game_data_buffer.put(data)
 
+            if self.index == 0:
+                self.env.get_state_grid()
+
             # game speed
             if not self.speed.value:
                 time.sleep(0.5)
+            else:
+                time.sleep(0.01)
 
             if done:
                 self.env.reset()
@@ -278,8 +286,8 @@ class Agent:
 def main():
     size_grid = Size_grid(10, 10)
 
-    model_network = DQN(11, 256, 3) #128, 512, 3
-    model_target_network = DQN(11, 256, 3) #128, 512, 3
+    model_network = DQN(400, 512, 3) #400, 512, 3
+    model_target_network = DQN(400, 512, 3) #400, 512, 3
     model_network.share_memory()
     model_target_network.share_memory()
 
@@ -304,7 +312,7 @@ def main():
         p_env = mp.Process(target=Agent, args=(i, size_grid, model_network, exp_buffer, game_data_buffer, epsilon, speed, random_init_snake, end_process))
         p_env.start()
         processes.append(p_env)
-    p_trainer = mp.Process(target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, epsilon, loss, epsilon_0, best_score, end_process))
+    p_trainer = mp.Process(target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, epsilon, loss, epsilon_0, best_score, end_process, speed))
     p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, start_time, speed, random_init_snake, loss, epsilon_0, end_process))
     p_trainer.start()
     p_graphic.start()
