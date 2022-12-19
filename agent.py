@@ -10,21 +10,18 @@ from collections import deque, namedtuple
 from environments import Environment, Direction, Coordinates, Size_grid
 from helper import Graphics
 
-
-HISTORY_SIZE = 100_000
-BATCH_SIZE = 1000
-BUFFER_SIZE = 1000
-
+# Hyperparameters
+BATCH_SIZE = 128
+MAX_ITER_PER_STEP = 10
 LR = 0.01 #0.001 #0.01
 GAMMA = 0.9 #0.95 #0.9
 
-EPSILON_START = 1
-EPSILON_END = 0.01 
-EPSILON_DECAY = 0.001 #0.00001 #0.001
+
 
 SYNC_TARGET_EPOCH = 100
 
-Experience = namedtuple('Experience', ('state', 'action', 'reward', 'done', 'next_state'))
+Experience = namedtuple('Experience', ('state', 'action', 'reward', 'done'))
+ExperienceFirstLast = namedtuple('ExperienceFirstLast', ('state', 'action', 'reward', 'last_state'))
 Game_data = namedtuple('Game_data', ('idx_env', 'done', 'snake_coordinates', 'apple_coordinate', 'score', 'best_score', 'nbr_games'))
 
 class ExperienceMemory:
@@ -43,28 +40,36 @@ class ExperienceMemory:
         return np.array(states), np.array(actions), np.array(rewards, dtype=np.float32), np.array(dones, dtype=np.uint8), np.array(next_states)
 
 
-class DQN(nn.Module):
+class A3C(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
-        super(DQN, self).__init__()
+        super(A3C, self).__init__()
 
-        self.fully_connected_layers = nn.Sequential(
+        # actor network
+        self.policy_nn = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
+            nn.Linear(hidden_size, output_size),
+            nn.Softmax(dim=1)
+        )
+
+        # critic network
+        self.value_nn = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, output_size)
+            nn.Linear(hidden_size, 1)
         )
 
     def forward(self, x):
-        return self.fully_connected_layers(x)
+        return self.policy_nn(x), self.value_nn(x)
         
 class DQN_trainer:
-    def __init__(self, model_network, model_target_network, exp_buffer, epoch, epsilon, loss, epsilon_0, best_score, end_process, speed):
+    def __init__(self, model_network, exp_buffer, epoch, epsilon, loss, epsilon_0, best_score, end_process, speed):
         # shared networks
         self.model_network = model_network
-        self.model_target_network = model_target_network
 
         # shared variables
         ## mp.Queue
@@ -81,7 +86,7 @@ class DQN_trainer:
         self.optimizer = optim.Adam(self.model_network.parameters(), lr=LR)
         self.loss = None
         self.criterion = nn.MSELoss()
-        self.exp_memory = ExperienceMemory(HISTORY_SIZE)
+        self.exp_memory = ExperienceMemory(BATCH_SIZE)
 
         #load models
         # self.load_model()
@@ -94,7 +99,6 @@ class DQN_trainer:
         while True:
             self.fillin_exp_memory()
             self.update_model_network()
-            self.sync_target_network()
             self.epoch.value += 1
             if self.epsilon_0.value:
                 self.epsilon.value = 0
@@ -135,14 +139,9 @@ class DQN_trainer:
         while not self.exp_buffer.empty():
             self.exp_memory._append(self.exp_buffer.get())
 
-    def sync_target_network(self):
-        if self.epoch.value % SYNC_TARGET_EPOCH == 0:
-            self.model_target_network.load_state_dict(self.model_network.state_dict())
-
     def save_model(self):
         torch.save({
             'model_network_state_dict': self.model_network.state_dict(),
-            'model_target_network_state_dict': self.model_target_network.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'best_score': self.best_score.value,
         }, 'model.pth')
@@ -150,16 +149,14 @@ class DQN_trainer:
     def load_model(self):
         checkpoint = torch.load('model.pth')
         self.model_network.load_state_dict(checkpoint['model_network_state_dict'])
-        self.model_target_network.load_state_dict(checkpoint['model_target_network_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.best_score.value = checkpoint['best_score']
 
         self.model_network.eval()
-        self.model_target_network.eval()
 
 class Agent:
 
-    def __init__(self, index, size_grid, model_network, exp_buffer, game_data_buffer, espilon, speed, random_init_snake, end_process):
+    def __init__(self, index, size_grid, model_network, exp_buffer, game_data_buffer, speed, random_init_snake, end_process):
         # constant variables
         self.index = index
         self.size_grid = size_grid
@@ -173,7 +170,6 @@ class Agent:
         self.model_network = model_network
 
         ## values
-        self.epsilon = espilon
         self.speed = speed
         self.random_init_snake = random_init_snake
         self.end_process = end_process
@@ -233,37 +229,52 @@ class Agent:
 
         return np.array(state, dtype=int)
 
-    def get_action(self, state):
-        # Espilon-Greedy: tradeoff exploration / exploitation
-        final_move = [0,0,0]
-        if np.random.random() < self.epsilon.value:
-            move = np.random.randint(0, 2)
-            final_move[move] = 1
-        else:
-            state0 = torch.tensor(state, dtype=torch.float)
-            prediction = self.model_network(state0)
-            move = torch.argmax(prediction).item()
-            final_move[move] = 1
+    # The NN return the probability of each moves
+    # We select a random action depending on the probability of each actions
 
+    def get_action(self, state):
+        # Select an action
+        state0 = torch.tensor(state, dtype=torch.float)
+        action_probs, _ = self.model_network(state0)
+        move = np.random.choice([0,1,2], p=action_probs)
+
+        # Return it
+        final_move = [0,0,0]
+        final_move[move] = 1
         return final_move
+
+    # Play in the game and give feedback to the NN every MAX_ITER_PER_STEP or when the game is over
+    # For the training, trainer for NN need sequence of experience (MAX = MAX_ITER_PER_STEP)
+    # However, sending all data will not be efficient.
+    # So we will send the first state, the first action, the discounted reward and the last state
 
     def play_step(self):
         self.env.reset()
+        list_exp = []
         while True:
 
             # 1. Collect experience
             current_state = self.get_state()
             action = self.get_action(current_state)
             reward, done, score = self.env.play(action)
-            next_state = self.get_state()
 
-            exp = Experience(current_state, action, reward, done, next_state)
-            self.exp_buffer.put(exp)
+            # 2. Add experience to buffers
+            ## 2.1 Experience buffer
+            exp = Experience(current_state, action, reward, done)
+            list_exp.append(exp)
+            if done or self.env.iteration % MAX_ITER_PER_STEP == 0:
+                # computer the discounted reward
+                total_reward = 0
+                for iter in reversed(list_exp):
+                    total_reward *= GAMMA
+                    total_reward += iter.reward
+                expFL = ExperienceFirstLast(list_exp[0].state, list_exp[0].action, total_reward, list_exp[-1].state)
+                self.exp_buffer.put(expFL)
+
+
+            ## 2.2 Game data buffer (for display)
             data = Game_data(self.index, done, self.env.snake.snake_coordinates, self.env.apple.apple_coordinate, score, self.best_score, self.game_nbr)
             self.game_data_buffer.put(data)
-
-            if self.index == 0:
-                self.env.get_state_grid()
 
             # game speed
             if not self.speed.value:
@@ -271,12 +282,14 @@ class Agent:
             else:
                 time.sleep(0.01)
 
+            # 3. Restart game
             if done:
                 self.env.reset()
                 self.game_nbr += 1
                 if score > self.best_score:
                     self.best_score = score
 
+            # 4. End process
             if self.end_process.value:
                 break 
 
@@ -284,15 +297,12 @@ class Agent:
 def main():
     size_grid = Size_grid(10, 10)
 
-    model_network = DQN(11, 256, 3) #400, 512, 3
-    model_target_network = DQN(11, 256, 3) #400, 512, 3
+    model_network = A3C(11, 256, 3) #400, 512, 3
     model_network.share_memory()
-    model_target_network.share_memory()
 
-    exp_buffer = mp.Queue(maxsize=BUFFER_SIZE)
-    game_data_buffer = mp.Queue(maxsize=BUFFER_SIZE)
+    exp_buffer = mp.Queue(maxsize=BATCH_SIZE)
+    game_data_buffer = mp.Queue(maxsize=BATCH_SIZE)
 
-    epsilon = mp.Value('d', EPSILON_START)
     start_time = mp.Value('d', time.time())
     loss = mp.Value('d', 0)
 
@@ -301,17 +311,16 @@ def main():
 
     speed = mp.Value('b', 0)
     random_init_snake = mp.Value('b', 0)
-    epsilon_0 = mp.Value('b', 0)
     end_process = mp.Value('b', 0)
 
     processes = []
 
     for i in range(4):
-        p_env = mp.Process(target=Agent, args=(i, size_grid, model_network, exp_buffer, game_data_buffer, epsilon, speed, random_init_snake, end_process))
+        p_env = mp.Process(target=Agent, args=(i, size_grid, model_network, exp_buffer, game_data_buffer, speed, random_init_snake, end_process))
         p_env.start()
         processes.append(p_env)
-    p_trainer = mp.Process(target=DQN_trainer, args=(model_network, model_target_network, exp_buffer, epoch, epsilon, loss, epsilon_0, best_score, end_process, speed))
-    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, epsilon, best_score, epoch, start_time, speed, random_init_snake, loss, epsilon_0, end_process))
+    p_trainer = mp.Process(target=DQN_trainer, args=(model_network, exp_buffer, epoch, loss, best_score, end_process, speed))
+    p_graphic = mp.Process(target=Graphics, args=(size_grid, game_data_buffer, best_score, epoch, start_time, speed, random_init_snake, loss, end_process))
     p_trainer.start()
     p_graphic.start()
     processes.append(p_trainer)

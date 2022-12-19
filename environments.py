@@ -23,11 +23,11 @@ class Environment:
         self.snake = Snake(self.size_grid, self.random_init)
         self.apple = Apple(self.snake.snake_coordinates, self.size_grid)
         self.score = 0
-        self.interation = 0
+        self.iteration = 0
 
     def play(self, action):
         # update or reset variables
-        self.interation += 1
+        self.iteration += 1
         reward = 0
         done = False
 
@@ -50,7 +50,7 @@ class Environment:
             reward = 10
 
         # check if snake collides with itself or with the wall
-        if self.is_collision(self.snake.snake_coordinates[0]) or self.interation > 100*self.snake.length:
+        if self.is_collision(self.snake.snake_coordinates[0]) or self.iteration > 100*self.snake.length:
             done = True
             reward = -100
             return reward, done, self.score
@@ -83,10 +83,12 @@ class Environment:
                 state_grid_frame2[snake_coordinate.y, snake_coordinate.x] = [1,0]
         if 0 <= self.snake.snake_coordinates[-1].x < self.size_grid.width and 0 <= self.snake.snake_coordinates[-1].y < self.size_grid.height:
             state_grid_frame2[self.snake.snake_coordinates[-1].y, self.snake.snake_coordinates[-1].x] = [1,0]
-
+        
         state_grid_frame2[self.apple.apple_coordinate.y, self.apple.apple_coordinate.x] = [0,1]
         state_grid_frame1[self.apple.apple_coordinate.y, self.apple.apple_coordinate.x] = [0,1]
-
+        # print("self.snake.snake_coordinates: ", self.snake.snake_coordinates)
+        # print("self.apple.apple_coordinate: ", self.apple.apple_coordinate)
+        # print("state_grid_frame1: ", state_grid_frame1)
         return np.concatenate((state_grid_frame1.reshape((200)), state_grid_frame2.reshape((200))))
 
 class Snake:

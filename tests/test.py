@@ -1,7 +1,12 @@
 import numpy as np
 from collections import namedtuple
 
-list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+def softmax(list):
+    exps = np.exp(list)
+    return exps / np.sum(exps)
 
-if list:
-    print("List is not empty")
+list = [1, 1, 10, 10]
+print(softmax(list))
+
+for _ in range(100):
+    print(np.random.choice([0, 1, 2, 3], p=softmax(list)))
