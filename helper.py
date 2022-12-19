@@ -22,6 +22,7 @@ class Plot:
 
         self.fig, (self.graph_scores, self.graph_loss) = plt.subplots(1, 2, figsize=(8, 4))
         self.fig.suptitle('Learning Curves : Training')
+        self.graph_loss2 = self.graph_loss.twinx()
 
         self.list_scores = [[0], [0], [0], [0]]
         self.list_loss_actor = [0]
@@ -74,15 +75,18 @@ class Plot:
 
         
         self.graph_loss.plot(self.list_loss_actor, color='red')
-        self.graph_loss.set_ylabel('actor_loss', color='red')
+        # self.graph_loss.set_ylabel('actor_loss', color='red')
         # self.graph_loss.set_ylim(ymin=0)
-        # self.graph_loss.text(len(self.list_loss_actor)-1, self.list_loss_actor[-1], str(self.list_loss_actor[-1]))
+        self.graph_loss.text(len(self.list_loss_actor)-1, self.list_loss_actor[-1], str(int(self.list_loss_actor[-1])))
 
-        graph_loss2 = self.graph_loss.twinx()
-        graph_loss2.plot(self.list_loss_critic, color='blue')
-        graph_loss2.set_ylabel('critic_loss', color='blue')
+        self.graph_loss2.clear()
+        self.graph_loss2.plot(self.list_loss_critic, color='blue')
+        # self.graph_loss2.set_ylabel('critic_loss', color='blue')
         # graph_loss2.set_ylim(ymin=0)
-        # graph_loss2.text(len(self.list_loss_critic)-1, self.list_loss_critic[-1], str(self.list_loss_critic[-1]))
+        self.graph_loss2.text(len(self.list_loss_critic)-1, self.list_loss_critic[-1], str(int(self.list_loss_critic[-1])))
+
+        self.graph_loss.legend(['actor_loss'], loc='upper left')
+        self.graph_loss2.legend(['critic_loss'], loc='upper right')
 
         # print("update plot 2 : ", time.perf_counter() - start)
         # start = time.perf_counter()

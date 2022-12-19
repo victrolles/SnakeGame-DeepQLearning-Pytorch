@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import numpy as np
 import time
 
-from collections import deque, namedtuple
+from collections import namedtuple
 
 from environments import Environment, Direction, Coordinates, Size_grid
 from helper import Graphics
@@ -27,22 +27,6 @@ SYNC_TARGET_EPOCH = 100
 Experience = namedtuple('Experience', ('state', 'action', 'reward', 'done'))
 ExperienceFirstLast = namedtuple('ExperienceFirstLast', ('state', 'action', 'reward', 'last_state'))
 Game_data = namedtuple('Game_data', ('idx_env', 'done', 'snake_coordinates', 'apple_coordinate', 'score', 'best_score', 'nbr_games'))
-
-# class ExperienceMemory:
-#     def __init__(self, capacity):
-#         self.buffer = deque(maxlen=capacity)
-
-#     def __len__(self):
-#         return len(self.buffer)
-
-#     def _append(self, experience):
-#         self.buffer.append(experience)
-
-#     def sample(self, batch_size):
-#         indices = np.random.choice(len(self.buffer), batch_size, replace=False)
-#         states, actions, rewards, dones, next_states = zip(*[self.buffer[idx] for idx in indices])
-#         return np.array(states), np.array(actions), np.array(rewards, dtype=np.float32), np.array(dones, dtype=np.uint8), np.array(next_states)
-
 
 class A3C(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
