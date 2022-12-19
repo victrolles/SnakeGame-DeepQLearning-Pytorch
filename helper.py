@@ -13,24 +13,29 @@ Game_data = namedtuple('Game_data', ('idx_env', 'done', 'snake_coordinates', 'ap
 Environment = namedtuple('Environment', ('canvas_env','label_score'))
 
 class Plot:
-    def __init__(self, game_data, root, loss, epoch):
+    def __init__(self, game_data, root, loss_actor, loss_critic, epoch):
         self.game_data = game_data
         self.root = root
-        self.loss = loss
+        self.loss_actor = loss_actor
+        self.loss_critic = loss_critic
         self.epoch = epoch
 
         self.fig, (self.graph_scores, self.graph_loss) = plt.subplots(1, 2, figsize=(8, 4))
         self.fig.suptitle('Learning Curves : Training')
 
         self.list_scores = [[0], [0], [0], [0]]
-        self.list_loss = [0]
+        self.list_loss_actor = [0]
+        self.list_loss_critic = [0]
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.root)
         self.canvas.get_tk_widget().place(x=630, y=155)
 
     def update_training_data(self):
-        if self.loss.value != self.list_loss[-1]:
-            self.list_loss.append(self.loss.value)
+        if self.loss_actor.value != self.list_loss_actor[-1]:
+            self.list_loss_actor.append(self.loss_actor.value)
+
+        if self.loss_critic.value != self.list_loss_critic[-1]:
+            self.list_loss_critic.append(self.loss_critic.value)
 
         for i in range(4):
             if self.game_data[i].done:
@@ -66,11 +71,18 @@ class Plot:
         self.graph_loss.clear()
         self.graph_loss.set_title('Loss :')
         self.graph_loss.set_xlabel('Number of Epochs')
-        self.graph_loss.set_ylabel('loss')
-        self.graph_loss.plot(self.list_loss)
-        self.graph_loss.set_ylim(ymin=0)
-        self.graph_loss.text(len(self.list_loss)-1, self.list_loss[-1], str(self.list_loss[-1]))
-        self.graph_loss.legend(['loss'])
+
+        
+        self.graph_loss.plot(self.list_loss_actor, color='red')
+        self.graph_loss.set_ylabel('actor_loss', color='red')
+        # self.graph_loss.set_ylim(ymin=0)
+        # self.graph_loss.text(len(self.list_loss_actor)-1, self.list_loss_actor[-1], str(self.list_loss_actor[-1]))
+
+        graph_loss2 = self.graph_loss.twinx()
+        graph_loss2.plot(self.list_loss_critic, color='blue')
+        graph_loss2.set_ylabel('critic_loss', color='blue')
+        # graph_loss2.set_ylim(ymin=0)
+        # graph_loss2.text(len(self.list_loss_critic)-1, self.list_loss_critic[-1], str(self.list_loss_critic[-1]))
 
         # print("update plot 2 : ", time.perf_counter() - start)
         # start = time.perf_counter()
@@ -82,7 +94,7 @@ class Plot:
         
 
 class Graphics:
-    def __init__(self, size_grid, game_data_buffer, espilon, best_score, epoch, time, speed, random_init_snake, loss, epsilon_0, end_process):
+    def __init__(self, size_grid, game_data_buffer, best_score, epoch, time, speed, random_init_snake, loss_actor, loss_critic, end_process):
         # constant variables
         self.size_screen = Size_screen(1500, 600)
         self.size_grid = size_grid
@@ -92,16 +104,15 @@ class Graphics:
         self.game_data_buffer = game_data_buffer
         ## mp.Value
         ### double
-        self.espilon = espilon
         self.time = time
-        self.loss = loss
+        self.loss_actor = loss_actor
+        self.loss_critic = loss_critic
         ### int
         self.best_score = best_score
         self.epoch = epoch
         ### bool
         self.speed = speed
         self.random_init_snake = random_init_snake
-        self.epsilon_0 = epsilon_0
         self.end_process = end_process
 
         # local variables
@@ -124,7 +135,7 @@ class Graphics:
         self.root.update()
 
         # matplotlib
-        self.plot = Plot(self.game_data, self.root, self.loss, self.epoch)
+        self.plot = Plot(self.game_data, self.root, self.loss_actor, self.loss_critic, self.epoch)
 
         # Loop
         self.update_graphics()
@@ -146,7 +157,6 @@ class Graphics:
         self.label_fps = tk.Label(self.root, text=f"FPS: {self.fps}", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
         self.label_epoch = tk.Label(self.root, text=f"Epoch: {self.epoch.value}", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
         self.label_time = tk.Label(self.root, text=f"Time: {self.time.value:.3f}", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
-        self.label_epsilon = tk.Label(self.root, text=f"Epsilon: {self.espilon.value:.3f}", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
         self.label_best_score = tk.Label(self.root, text=f"Best score: {self.best_score.value}", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
 
         ## buttons:
@@ -157,22 +167,19 @@ class Graphics:
         ### options:
         self.button_random_init_snake = tk.Button(self.root, text="Random init snake", command=self.change_random_init_snake, bg="#500000", fg="#FFFFFF", font=("Arial", 15))
         self.button_speed = tk.Button(self.root, text="Speed", command=self.change_speed, bg="#500000", fg="#FFFFFF", font=("Arial", 15))
-        self.button_epsilon_0 = tk.Button(self.root, text="Epsilon 0", command=self.change_epsilon_0, bg="#500000", fg="#FFFFFF", font=("Arial", 15))
         ### labels:
         self.label_button_display_envs = tk.Label(self.root, text="On", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
         self.label_button_display_infos = tk.Label(self.root, text="On", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
         self.label_button_display_plots = tk.Label(self.root, text="On", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
         self.label_button_random_init_snake = tk.Label(self.root, text="Off", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
         self.label_button_speed = tk.Label(self.root, text="Off", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
-        self.label_epsilon_0 = tk.Label(self.root, text="Off", bg="#0000CC", fg="#FFFFFF", font=("Arial", 15))
         ### exit:
         self.button_exit = tk.Button(self.root, text="Exit", command=self.exit, bg="#500000", fg="#FFFFFF", font=("Arial", 15))
 
         self.label_fps.place(x=700, y=5)
         self.label_epoch.place(x=700, y=35)
         self.label_time.place(x=700, y=65)
-        self.label_epsilon.place(x=700, y=95)
-        self.label_best_score.place(x=700, y=125)
+        self.label_best_score.place(x=700, y=95)
 
         self.button_display_envs.place(x=900, y=10)
         self.button_display_infos.place(x=900, y=55)
@@ -180,14 +187,12 @@ class Graphics:
 
         self.button_random_init_snake.place(x=1160, y=10)
         self.button_speed.place(x=1160, y=55)
-        self.button_epsilon_0.place(x=1160, y=100)
 
         self.label_button_display_envs.place(x=1050, y=15)
         self.label_button_display_infos.place(x=1050, y=60)
         self.label_button_display_plots.place(x=1050, y=105)
         self.label_button_random_init_snake.place(x=1350, y=15)
         self.label_button_speed.place(x=1350, y=60)
-        self.label_epsilon_0.place(x=1350, y=105)
 
         self.button_exit.place(x=1425, y=60)
 
@@ -230,14 +235,6 @@ class Graphics:
         else:
             self.speed.value = True
             self.label_button_speed.config(text="On")
-
-    def change_epsilon_0(self):
-        if self.epsilon_0.value:
-            self.epsilon_0.value = False
-            self.label_epsilon_0.config(text="Off")
-        else:
-            self.epsilon_0.value = True
-            self.label_epsilon_0.config(text="On")
 
     def exit(self):
         self.root.destroy()
@@ -299,7 +296,6 @@ class Graphics:
         self.label_fps.config(text=f"FPS: {self.fps}")
         self.label_epoch.config(text=f"Epoch: {self.epoch.value}")
         self.label_time.config(text=f"Time: {(time.time() - self.time.value):.1f}")
-        self.label_epsilon.config(text=f"Epsilon: {self.espilon.value:.3f}")
         self.label_best_score.config(text=f"Best score: {self.best_score.value}")
 
     def draw_grid(self, canvas_env):
