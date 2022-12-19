@@ -77,13 +77,13 @@ class Plot:
         self.graph_loss.plot(self.list_loss_actor, color='red')
         # self.graph_loss.set_ylabel('actor_loss', color='red')
         # self.graph_loss.set_ylim(ymin=0)
-        self.graph_loss.text(len(self.list_loss_actor)-1, self.list_loss_actor[-1], str(int(self.list_loss_actor[-1])))
+        self.graph_loss.text(len(self.list_loss_actor)-1, self.list_loss_actor[-1], str(np.round(self.list_loss_actor[-1])))
 
         self.graph_loss2.clear()
         self.graph_loss2.plot(self.list_loss_critic, color='blue')
         # self.graph_loss2.set_ylabel('critic_loss', color='blue')
         # graph_loss2.set_ylim(ymin=0)
-        self.graph_loss2.text(len(self.list_loss_critic)-1, self.list_loss_critic[-1], str(int(self.list_loss_critic[-1])))
+        self.graph_loss2.text(len(self.list_loss_critic)-1, self.list_loss_critic[-1], str(np.round(self.list_loss_critic[-1])))
 
         self.graph_loss.legend(['actor_loss'], loc='upper left')
         self.graph_loss2.legend(['critic_loss'], loc='upper right')

@@ -14,15 +14,13 @@ from helper import Graphics
 
 # Hyperparameters
 BATCH_SIZE = 128
-MAX_ITER_PER_STEP = 10
-MEMORY_SIZE = 30
+MAX_ITER_PER_STEP = 5
+MEMORY_SIZE = 128
 
-LR = 0.01 #0.001 #0.01
-GAMMA = 0.9 #0.95 #0.9
+LR = 0.001 #0.001 #0.01
+GAMMA = 0.99 #0.95 #0.9
 CLIP_GRAD = 0.1
 ENTROPY_BETA = 0.01
-
-SYNC_TARGET_EPOCH = 100
 
 Experience = namedtuple('Experience', ('state', 'action', 'reward', 'done'))
 ExperienceFirstLast = namedtuple('ExperienceFirstLast', ('state', 'action', 'reward', 'last_state'))
@@ -36,17 +34,12 @@ class A3C(nn.Module):
         self.policy_nn = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, output_size),
-            nn.Softmax(dim = 0)
+            nn.Linear(hidden_size, output_size)
         )
 
         # critic network
         self.value_nn = nn.Sequential(
             nn.Linear(input_size, hidden_size),
-            nn.ReLU(),
-            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, 1)
         )
@@ -70,7 +63,7 @@ class A3C_trainer:
         self.end_process = end_process
         self.speed = speed
         # local variables
-        self.optimizer = optim.Adam(self.model_network.parameters(), lr=LR)
+        self.optimizer = optim.Adam(self.model_network.parameters(), lr=LR, eps=1e-3)
         self.criterion = nn.MSELoss()
 
         #load models
@@ -130,6 +123,8 @@ class A3C_trainer:
         nn_utils.clip_grad_norm_(self.model_network.parameters(), CLIP_GRAD)
         self.optimizer.step()
 
+        loss_v += loss_policy_v
+
 
     def fillin_exp_memory(self, experience_memory):
         while len(experience_memory) < MEMORY_SIZE:
@@ -160,7 +155,7 @@ class A3C_trainer:
             last_states_v = torch.FloatTensor(last_states_np)
             last_vals_v = self.model_network(last_states_v)[1]
             last_vals_np = last_vals_v.data.numpy()[:, 0]
-            rewards_np[not_done_idx] += GAMMA**MAX_ITER_PER_STEP * last_vals_np
+            rewards_np[not_done_idx] += GAMMA ** MAX_ITER_PER_STEP * last_vals_np
 
         ref_vals_v = torch.FloatTensor(rewards_np)
         return states_v, actions_t, ref_vals_v
@@ -261,7 +256,8 @@ class Agent:
     def get_action(self, state):
         # Select an action
         state0 = torch.tensor(state, dtype=torch.float)
-        action_probs, _ = self.model_network(state0)
+        action, _ = self.model_network(state0)
+        action_probs = F.softmax(action, dim=0)
         move = np.random.choice([0,1,2], p=action_probs.detach().numpy())
 
         # Return it
@@ -277,14 +273,12 @@ class Agent:
     def play_step(self):
         self.env.reset()
         list_exp = []
-        total_reward = 0
         while True:
 
             # 1. Collect experience
             current_state = self.get_state()
             action = self.get_action(current_state)
             reward, done, score = self.env.play(action)
-            total_reward += reward
 
             # 2. Add experience to buffers
             ## 2.1 Experience buffer
@@ -292,18 +286,24 @@ class Agent:
             exp = Experience(current_state, action, reward, done)
             list_exp.append(exp)
             if done or self.env.iteration % MAX_ITER_PER_STEP == 0:
+                if done:
+                    last_state = None
+                    elems = list_exp
+                else:
+                    last_state = list_exp[-1].state
+                    elems = list_exp[:-1]
                 # computer the discounted reward
                 total_reward = 0
-                for iter in reversed(list_exp):
+                for iter in reversed(elems):
                     total_reward *= GAMMA
                     total_reward += iter.reward
 
-                if done: 
-                    expFL = ExperienceFirstLast(list_exp[0].state, list_exp[0].action, total_reward, None)
-                    self.exp_buffer.put(expFL)
-                else:
-                    expFL = ExperienceFirstLast(list_exp[0].state, list_exp[0].action, total_reward, list_exp[-1].state)
-                    self.exp_buffer.put(expFL)
+                # add to buffer
+                expFL = ExperienceFirstLast(list_exp[0].state, list_exp[0].action, total_reward, last_state)
+                self.exp_buffer.put(expFL)
+
+                # clear list
+                list_exp = []
 
             ## 2.2 Game data buffer (for display)
             data = Game_data(self.index, done, self.env.snake.snake_coordinates, self.env.apple.apple_coordinate, score, self.best_score, self.game_nbr)
