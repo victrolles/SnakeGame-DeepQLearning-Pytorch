@@ -22,8 +22,7 @@ GAMMA = 0.99 #0.95 #0.9
 CLIP_GRAD = 0.1
 ENTROPY_BETA = 0.01
 
-Experience = namedtuple('Experience', ('state', 'action', 'reward', 'done'))
-ExperienceFirstLast = namedtuple('ExperienceFirstLast', ('state', 'action', 'reward', 'last_state'))
+Experience = namedtuple('Experience', ('log_probs', 'values', 'rewards', 'entropy', 'Qval'))
 Game_data = namedtuple('Game_data', ('idx_env', 'done', 'snake_coordinates', 'apple_coordinate', 'score', 'best_score', 'nbr_games'))
 
 class A3C(nn.Module):
@@ -131,35 +130,6 @@ class A3C_trainer:
             experience_memory.append(self.exp_buffer.get())
         return experience_memory
 
-    def unpack_exp_memory(self, experience_memory):
-        states = []
-        actions = []
-        rewards = []
-        not_done_idx = []
-        last_states = []
-        for idx, exp in enumerate(experience_memory):
-            states.append(np.array(exp.state, copy=False))
-            actions.append(int(exp.action))
-            rewards.append(exp.reward)
-            if exp.last_state is not None:
-                not_done_idx.append(idx)
-                last_states.append(np.array(exp.last_state, copy=False))
-        states_np = np.array(states, copy=False)
-        states_v = torch.FloatTensor(states_np)
-        actions_t = torch.LongTensor(actions)
-
-        # handle rewards
-        rewards_np = np.array(rewards, dtype=np.float32)
-        if not_done_idx:
-            last_states_np = np.array(last_states, copy=False)
-            last_states_v = torch.FloatTensor(last_states_np)
-            last_vals_v = self.model_network(last_states_v)[1]
-            last_vals_np = last_vals_v.data.numpy()[:, 0]
-            rewards_np[not_done_idx] += GAMMA ** MAX_ITER_PER_STEP * last_vals_np
-
-        ref_vals_v = torch.FloatTensor(rewards_np)
-        return states_v, actions_t, ref_vals_v
-
 
     def save_model(self):
         torch.save({
@@ -256,7 +226,7 @@ class Agent:
     def get_action(self, state):
         # Select an action
         state0 = torch.tensor(state, dtype=torch.float)
-        action, _ = self.model_network(state0)
+        action, value = self.model_network(state0)
         action_probs = F.softmax(action, dim=0)
         move = np.random.choice([0,1,2], p=action_probs.detach().numpy())
 
@@ -271,55 +241,62 @@ class Agent:
     # So we will send the first state, the first action, the discounted reward and the last state.
     # If the game is over, we will also send the total undiscounted reward
     def play_step(self):
-        self.env.reset()
-        list_exp = []
+        state = self.get_state()
         while True:
+            self.env.reset()
+            log_probs = []
+            values = []
+            rewards = []
+            entropy = 0
 
-            # 1. Collect experience
-            current_state = self.get_state()
-            action = self.get_action(current_state)
-            reward, done, score = self.env.play(action)
+            # Convert the state to tensor
+            state_tensor = torch.tensor(state, dtype=torch.float)
+            # Get the action (actor) and the value (critic)
+            action, value = self.model_network(state_tensor)
 
-            # 2. Add experience to buffers
-            ## 2.1 Experience buffer
-            action = np.argmax(action) # convert [0,0,1] to 2
-            exp = Experience(current_state, action, reward, done)
-            list_exp.append(exp)
-            if done or self.env.iteration % MAX_ITER_PER_STEP == 0:
-                if done:
-                    last_state = None
-                    elems = list_exp
-                else:
-                    last_state = list_exp[-1].state
-                    elems = list_exp[:-1]
-                # computer the discounted reward
-                total_reward = 0
-                for iter in reversed(elems):
-                    total_reward *= GAMMA
-                    total_reward += iter.reward
+            # Convert the action and value to numpy
+            action_probs = F.softmax(action, dim=0)
+            action_probs_np = action_probs.detach().numpy()
+            value_np = value.detach().numpy()[0]
 
-                # add to buffer
-                expFL = ExperienceFirstLast(list_exp[0].state, list_exp[0].action, total_reward, last_state)
-                self.exp_buffer.put(expFL)
+            # Select an action
+            move = np.random.choice([0,1,2], p=action_probs_np)
+            final_move = [0,0,0]
+            final_move[move] = 1
 
-                # clear list
-                list_exp = []
+            # Calculate the lob prob, entropy and reward
+            log_prob = torch.log(action_probs[move])
+            entropy += -(action_probs * torch.log(action_probs)).sum(0)
+            reward, done, score = self.env.play(final_move)
+            new_state = self.get_state()
 
-            ## 2.2 Game data buffer (for display)
+            # Add to lists
+            log_probs.append(log_prob)
+            values.append(value_np)
+            rewards.append(reward)
+
+            # restart state
+            state = new_state
+
+            # Game data buffer (for display)
             data = Game_data(self.index, done, self.env.snake.snake_coordinates, self.env.apple.apple_coordinate, score, self.best_score, self.game_nbr)
             self.game_data_buffer.put(data)
+
+            # 3. Restart game
+            if done:
+                _ , Qval = self.model_network(torch.tensor(new_state, dtype=torch.float))
+                # add to buffer
+                exp = Experience(log_probs, values, rewards, entropy, Qval.detach().numpy()[0])
+                self.exp_buffer.put(exp)
+
+                self.env.reset()
+                self.game_nbr += 1
+                if score > self.best_score:
+                    self.best_score = score
 
             # game speed
             if not self.speed.value:
                 time.sleep(0.5)
-
-            # 3. Restart game
-            if done:
-                self.env.reset()
-                self.game_nbr += 1
-                total_reward = 0
-                if score > self.best_score:
-                    self.best_score = score
 
             # 4. End process
             if self.end_process.value:
