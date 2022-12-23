@@ -127,12 +127,16 @@ class A3C_trainer:
         values = torch.FloatTensor(element_memory.values)
         Qvals = torch.FloatTensor(Qvals)
         log_probs = torch.FloatTensor(element_memory.log_probs)
-        entropy = torch.double(element_memory.entropy)
+        entropy = torch.FloatTensor(element_memory.entropy)
         self.entropies += entropy
 
         advantage = Qvals - values
-        actor_loss = (-log_probs * advantage.detach()).mean()
+        actor_loss = (-log_probs * advantage).mean()
         critic_loss = advantage.pow(2).mean()
+
+        print("actor_loss", actor_loss)
+        print("critic_loss", critic_loss)
+        print("self.entropies", self.entropies)
 
         ac_loss = actor_loss + critic_loss + 0.001 * self.entropies
 
