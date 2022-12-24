@@ -36,7 +36,7 @@ class A3C(nn.Module):
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, output_size),
-            nn.Softmax(dim=0)
+            nn.Softmax()
         )
 
         # critic network
@@ -107,12 +107,12 @@ class A3C_trainer:
     def update_model_network(self):
         # Pick first element of the experience memory
         game_exp = self.exp_queue.popleft()
-        print("_________________________________")
-        print("self.exp_queue", len(self.exp_queue))
-        print("_____")
-        for element in game_exp:
-            print("element", element)
-        print("_____")
+        # print("_________________________________")
+        # print("self.exp_queue", len(self.exp_queue))
+        # print("_____")
+        # for element in game_exp:
+        #     print("element", element)
+        # print("_____")
         states = []
         actions = []
         rewards = []
@@ -132,59 +132,50 @@ class A3C_trainer:
         next_states = torch.tensor(next_states, dtype=torch.float)
         dones = torch.tensor(dones, dtype=torch.float)
 
-        print("states", states)
-        print("actions", actions)
-        print("rewards", rewards)
-        print("next_states", next_states)
-        print("dones", dones)
+        # print("states", states)
+        # print("actions", actions)
+        # print("rewards", rewards)
+        # print("next_states", next_states)
+        # print("dones", dones)
 
         # Compute the advantage
-        # for i in range(len(game_exp)):
-        #     # Compute the value of the current state
-        #     probs, value = self.model_network(states[i])
-        #     # Compute the value of the next state
-        #     _, next_value = self.model_network(next_states[i])
-        #     # Compute the advantage
-        #     advantages = rewards[i] + GAMMA * next_value * (1 - dones[i]) - value
-        #     distribution = distr.Categorical(probs)
-        #     log_probs = distribution.log_prob(actions[i])
-        #     entropies = distribution.entropy()
             # Compute the value of the current state
-        probs, value = self.model_network(states)
+        probs, values = self.model_network(states)
             # Compute the value of the next state
-        _, next_value = self.model_network(next_states)
+        _, next_values = self.model_network(next_states)
+
+        # print("probs", probs)
+        # print("values", values.squeeze())
+        # print("next_values", next_values.squeeze())
+
             # Compute the advantage
-        advantages = rewards[i] + GAMMA * next_value * (1 - dones) - value
+        advantages = rewards + GAMMA * next_values.squeeze() * (1 - dones) - values.squeeze()
         distribution = distr.Categorical(probs)
         log_probs = distribution.log_prob(actions)
         entropies = distribution.entropy()
 
 
-        print("advantages", advantages)
-        print("log_probs", log_probs)
-        print("entropies", entropies)
+        # print("advantages", advantages)
+        # print("log_probs", log_probs)
+        # print("entropies", entropies)
 
             # Compute the loss
         actor_loss = (-log_probs * advantages).mean()
         critic_loss = advantages.pow(2).mean()
-        loss = actor_loss + critic_loss - ENTROPY_BETA * entropies.mean()
-            # critic = self.criterion(value, rewards[i] + GAMMA * next_value * (1 - dones[i]))
-            # Compute the entropy
-            # self.entropies = self.entropy(states[i])
+        entropy_loss = ENTROPY_BETA * entropies.mean()
+        loss = actor_loss + critic_loss + entropy_loss
 
-            # # Update the model network
-            # self.optimizer.zero_grad()
-            # loss = loss_actor + loss_critic - ENTROPY_BETA * self.entropies
-            # loss.backward()
-            # nn_utils.clip_grad_norm_(self.model_network.parameters(), CLIP_GRAD)
-            # self.optimizer.step()
+        # print("actor_loss", actor_loss)
+        # print("critic_loss", critic_loss)
+        # print("entropy_loss", entropy_loss)
+        # print("loss", loss)
 
-            # # Update global variables
-            # ## loss actor
-            # self.loss_actor_value.value += loss_actor.item()
-            # ## loss critic
-            # self.loss_critic_value.value += loss_critic.item()
+        self.loss_actor_value.value = actor_loss.item()
+        self.loss_critic_value.value = critic_loss.item()
 
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
     def fillin_exp_memory(self):
         while not self.exp_buffer.empty() or not self.exp_queue:

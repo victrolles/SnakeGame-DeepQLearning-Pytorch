@@ -1,29 +1,43 @@
-import numpy as np
-import torch.nn as nn
-import torch
-import torch.distributions as distr
+from math import tan, atan, sqrt, pi, degrees, radians
 
-tensor = torch.tensor([7,4,4,8], dtype=torch.float32, requires_grad=True)
+def calc_alpha(h,l):
+    return atan(2*h/l)
 
-print("tensor: ", tensor)
+def calc_h1(h,l):
+    return sqrt(h**2 + (l/2)**2)
 
-probs = nn.functional.softmax(tensor, dim=0)
+def calc_b(h, alpha):
+    return h / tan(alpha)
 
-print("probs",probs)
+def calc_d(l,b):
+    return sqrt((l/2)**2 + b**2)
 
-distribution = distr.Categorical(probs=probs)
+def calc_c(h, d):
+    return sqrt(h**2 + d**2)
 
-print("distribution",distribution)
+def calc_main_aire(h,l,long):
+    h1 = calc_h1(h,l)
+    alpha = calc_alpha(h,l)
+    b = calc_b(h1, alpha)
+    print("alpha: ", degrees(alpha))
 
-sample = distribution.sample()
+    return h1 * (long-b)
 
-print("sample",sample)
+def calc_side_aire(h,l):
+    alpha = calc_alpha(h,l)
+    b = calc_b(h, alpha)
+    d = calc_d(l,b)
+    c = calc_c(h, d)
 
-log_prob = distribution.log_prob(sample)
+    return 1/2 * l * sqrt(c**2 - (l/2)**2)
 
-print("log_prob",log_prob)
+h=3
+l=5
+long=10
 
-entropy = distribution.entropy()
-
-print("entropy",entropy)
-
+main_aire = calc_main_aire(h,l,long)
+side_aire = calc_side_aire(h,l)
+result = 2 * (main_aire + side_aire)
+print("main_aire: ", main_aire)
+print("side_aire: ", side_aire)
+print("result", result)
