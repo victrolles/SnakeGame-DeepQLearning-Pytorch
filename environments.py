@@ -36,7 +36,10 @@ class Environment:
 
         # check if snake is closer to apple
         current_dist = np.sqrt((self.snake.snake_coordinates[0].x - self.apple.apple_coordinate.x)**2 + (self.snake.snake_coordinates[0].y - self.apple.apple_coordinate.y)**2)
-        old_dist = np.sqrt((self.snake.snake_coordinates[1].x - self.apple.apple_coordinate.x)**2 + (self.snake.snake_coordinates[1].y - self.apple.apple_coordinate.y)**2) if self.snake.length > 1 else 0
+        if self.snake.length > 1:
+            old_dist = np.sqrt((self.snake.snake_coordinates[1].x - self.apple.apple_coordinate.x)**2 + (self.snake.snake_coordinates[1].y - self.apple.apple_coordinate.y)**2)
+        else:
+            old_dist = np.sqrt((self.snake.old_tail_coordinate.x - self.apple.apple_coordinate.x)**2 + (self.snake.old_tail_coordinate.y - self.apple.apple_coordinate.y)**2)
         if current_dist < old_dist:
             reward = 1
         else:
@@ -52,7 +55,7 @@ class Environment:
         # check if snake collides with itself or with the wall
         if self.is_collision(self.snake.snake_coordinates[0]) or self.iteration > 100*self.snake.length:
             done = True
-            reward = -100
+            reward = -10
             return reward, done, self.score
 
         return reward, done, self.score

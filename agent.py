@@ -4,6 +4,7 @@ import torch.optim as optim
 import torch.multiprocessing as mp
 import torch.nn.utils as nn_utils
 import torch.nn.functional as F
+import torch.distributions as distr
 import numpy as np
 import time
 
@@ -17,27 +18,12 @@ BATCH_SIZE = 128
 MEMORY_SIZE = 200
 
 LR = 0.001 #0.001 #0.01
-GAMMA = 0.99 #0.95 #0.9
+GAMMA = 0.95 #0.95 #0.9
 CLIP_GRAD = 0.1
 ENTROPY_BETA = 0.01
 
-Experience = namedtuple('Experience', ('log_probs', 'values', 'rewards', 'entropy', 'Qval'))
+Experience = namedtuple('Experience', ('state', 'action', 'reward', 'next_state', 'done'))
 Game_data = namedtuple('Game_data', ('idx_env', 'done', 'snake_coordinates', 'apple_coordinate', 'score', 'best_score', 'nbr_games'))
-
-class ExperienceMemory:
-    def __init__(self, capacity):
-        self.buffer = deque(maxlen=capacity)
-
-    def __len__(self):
-        return len(self.buffer)
-
-    def _append(self, experience):
-        self.buffer.append(experience)
-
-    def sample(self, batch_size):
-        indices = np.random.choice(len(self.buffer), batch_size, replace=False)
-        states, actions, rewards, dones, next_states = zip(*[self.buffer[idx] for idx in indices])
-        return np.array(states), np.array(actions), np.array(rewards, dtype=np.float32), np.array(dones, dtype=np.uint8), np.array(next_states)
 
 class A3C(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
@@ -47,12 +33,17 @@ class A3C(nn.Module):
         self.policy_nn = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, output_size)
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, output_size),
+            nn.Softmax(dim=0)
         )
 
         # critic network
         self.value_nn = nn.Sequential(
             nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, 1)
         )
@@ -115,34 +106,84 @@ class A3C_trainer:
 
     def update_model_network(self):
         # Pick first element of the experience memory
-        element_memory = self.exp_queue.popleft()
+        game_exp = self.exp_queue.popleft()
+        print("_________________________________")
+        print("self.exp_queue", len(self.exp_queue))
+        print("_____")
+        for element in game_exp:
+            print("element", element)
+        print("_____")
+        states = []
+        actions = []
+        rewards = []
+        next_states = []
+        dones = []
+        for element in game_exp:
+            states.append(element.state)
+            actions.append(element.action)
+            rewards.append(element.reward)
+            next_states.append(element.next_state)
+            dones.append(element.done)
 
-        # Compute Q values
-        Qvals = np.zeros_like(element_memory.values)
-        for t in reversed(range(len(element_memory.rewards))):
-            Qval = element_memory.rewards[t] + GAMMA * Qvals[t]
-            Qvals[t] = Qval
+        # Convert to tensor
+        states = torch.tensor(states, dtype=torch.float)
+        actions = torch.tensor(actions, dtype=torch.long)
+        rewards = torch.tensor(rewards, dtype=torch.float)
+        next_states = torch.tensor(next_states, dtype=torch.float)
+        dones = torch.tensor(dones, dtype=torch.float)
 
-        # update actor critic
-        values = torch.FloatTensor(element_memory.values)
-        Qvals = torch.FloatTensor(Qvals)
-        log_probs = torch.FloatTensor(element_memory.log_probs)
-        entropy = torch.FloatTensor(element_memory.entropy)
-        self.entropies += entropy
+        print("states", states)
+        print("actions", actions)
+        print("rewards", rewards)
+        print("next_states", next_states)
+        print("dones", dones)
 
-        advantage = Qvals - values
-        actor_loss = (-log_probs * advantage).mean()
-        critic_loss = advantage.pow(2).mean()
+        # Compute the advantage
+        # for i in range(len(game_exp)):
+        #     # Compute the value of the current state
+        #     probs, value = self.model_network(states[i])
+        #     # Compute the value of the next state
+        #     _, next_value = self.model_network(next_states[i])
+        #     # Compute the advantage
+        #     advantages = rewards[i] + GAMMA * next_value * (1 - dones[i]) - value
+        #     distribution = distr.Categorical(probs)
+        #     log_probs = distribution.log_prob(actions[i])
+        #     entropies = distribution.entropy()
+            # Compute the value of the current state
+        probs, value = self.model_network(states)
+            # Compute the value of the next state
+        _, next_value = self.model_network(next_states)
+            # Compute the advantage
+        advantages = rewards[i] + GAMMA * next_value * (1 - dones) - value
+        distribution = distr.Categorical(probs)
+        log_probs = distribution.log_prob(actions)
+        entropies = distribution.entropy()
 
-        print("actor_loss", actor_loss)
-        print("critic_loss", critic_loss)
-        print("self.entropies", self.entropies)
 
-        ac_loss = actor_loss + critic_loss + 0.001 * self.entropies
+        print("advantages", advantages)
+        print("log_probs", log_probs)
+        print("entropies", entropies)
 
-        self.optimizer.zero_grad()
-        ac_loss.backward()
-        self.optimizer.step()
+            # Compute the loss
+        actor_loss = (-log_probs * advantages).mean()
+        critic_loss = advantages.pow(2).mean()
+        loss = actor_loss + critic_loss - ENTROPY_BETA * entropies.mean()
+            # critic = self.criterion(value, rewards[i] + GAMMA * next_value * (1 - dones[i]))
+            # Compute the entropy
+            # self.entropies = self.entropy(states[i])
+
+            # # Update the model network
+            # self.optimizer.zero_grad()
+            # loss = loss_actor + loss_critic - ENTROPY_BETA * self.entropies
+            # loss.backward()
+            # nn_utils.clip_grad_norm_(self.model_network.parameters(), CLIP_GRAD)
+            # self.optimizer.step()
+
+            # # Update global variables
+            # ## loss actor
+            # self.loss_actor_value.value += loss_actor.item()
+            # ## loss critic
+            # self.loss_critic_value.value += loss_critic.item()
 
 
     def fillin_exp_memory(self):
@@ -245,10 +286,10 @@ class Agent:
     # We select a random action depending on the probability of each actions
     def get_action(self, state):
         # Select an action
-        state0 = torch.tensor(state, dtype=torch.float)
-        action, value = self.model_network(state0)
-        action_probs = F.softmax(action, dim=0)
-        move = np.random.choice([0,1,2], p=action_probs.detach().numpy())
+        state_ts = torch.from_numpy(state).float()
+        action_probs, _ = self.model_network(state_ts)
+        distribution = distr.Categorical(probs = action_probs)
+        move = distribution.sample()
 
         # Return it
         final_move = [0,0,0]
@@ -261,40 +302,20 @@ class Agent:
     # So we will send the first state, the first action, the discounted reward and the last state.
     # If the game is over, we will also send the total undiscounted reward
     def play_step(self):
-        state = self.get_state()
-        log_probs = []
-        values = []
-        rewards = []
-        entropy = 0
+        game_exp = []
         while True:
-            # Convert the state to tensor
-            state_tensor = torch.tensor(state, dtype=torch.float)
-            # Get the action (actor) and the value (critic)
-            action, value = self.model_network(state_tensor)
+            state = self.get_state()
 
-            # Convert the action and value to numpy
-            action_probs = F.softmax(action, dim=0)
-            action_probs_np = action_probs.detach().numpy()
-            value_np = value.detach().numpy()[0]
+            move = self.get_action(state)
 
-            # Select an action
-            move = np.random.choice([0,1,2], p=action_probs_np)
-            final_move = [0,0,0]
-            final_move[move] = 1
+            reward, done, score = self.env.play(move)
 
-            # Calculate the lob prob, entropy and reward
-            log_prob = torch.log(action_probs[move]).detach().item()
-            entropy += -(action_probs * torch.log(action_probs)).sum(0)
-            reward, done, score = self.env.play(final_move)
+            # Get the new state
             new_state = self.get_state()
 
-            # Add to lists
-            log_probs.append(log_prob)
-            values.append(value_np)
-            rewards.append(reward)
-
-            # restart state
-            state = new_state
+            # Add exp to list
+            exp = Experience(state, np.argmax(move), reward, new_state, done)
+            game_exp.append(exp)
 
             # Game data buffer (for display)
             data = Game_data(self.index, done, self.env.snake.snake_coordinates, self.env.apple.apple_coordinate, score, self.best_score, self.game_nbr)
@@ -302,25 +323,15 @@ class Agent:
 
             # 3. Restart game
             if done:
-                _ , Qval = self.model_network(torch.tensor(new_state, dtype=torch.float))
-                # add to buffer
-                print("log_probs", log_probs)
-                print("values", values)
-                print("rewards", rewards)
-                print("entropy", entropy.detach().item())
-                print("Qval", Qval.detach().numpy()[0])
-                exp = Experience(log_probs, values, rewards, entropy.detach(), Qval.detach().numpy()[0])
-                self.exp_buffer.put(exp)
+                
+                self.exp_buffer.put(game_exp)
 
                 self.env.reset()
                 self.game_nbr += 1
                 if score > self.best_score:
                     self.best_score = score
 
-                log_probs = []
-                values = []
-                rewards = []
-                entropy = 0
+                game_exp = []
 
             # game speed
             if not self.speed.value:
