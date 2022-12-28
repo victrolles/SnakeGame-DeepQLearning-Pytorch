@@ -17,7 +17,7 @@ from helper import Graphics
 BATCH_SIZE = 128
 MEMORY_SIZE = 200
 
-LR = 0.001 #0.001 #0.01
+LR = 0.01 #0.001 #0.01
 GAMMA = 0.95 #0.95 #0.9
 CLIP_GRAD = 0.1
 ENTROPY_BETA = 0.01
@@ -107,12 +107,7 @@ class A3C_trainer:
     def update_model_network(self):
         # Pick first element of the experience memory
         game_exp = self.exp_queue.popleft()
-        # print("_________________________________")
-        # print("self.exp_queue", len(self.exp_queue))
-        # print("_____")
-        # for element in game_exp:
-        #     print("element", element)
-        # print("_____")
+
         states = []
         actions = []
         rewards = []
@@ -326,7 +321,7 @@ class Agent:
 
             # game speed
             if not self.speed.value:
-                time.sleep(0.5)
+                time.sleep(0.2)
 
             # 4. End process
             if self.end_process.value:
