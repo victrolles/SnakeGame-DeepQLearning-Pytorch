@@ -15,12 +15,12 @@ from helper import Graphics
 
 # Hyperparameters
 BATCH_SIZE = 128
-MEMORY_SIZE = 200
+MEMORY_SIZE = 30
 
-LR = 0.01 #0.001 #0.01
-GAMMA = 0.95 #0.95 #0.9
+LR = 0.0001 #0.001 #0.01
+GAMMA = 0.99 #0.95 #0.9
 CLIP_GRAD = 0.1
-ENTROPY_BETA = 0.01
+ENTROPY_BETA = 0.001
 
 Experience = namedtuple('Experience', ('state', 'action', 'reward', 'next_state', 'done'))
 Game_data = namedtuple('Game_data', ('idx_env', 'done', 'snake_coordinates', 'apple_coordinate', 'score', 'best_score', 'nbr_games'))
@@ -69,7 +69,8 @@ class A3C_trainer:
         # local variables
         self.optimizer = optim.Adam(self.model_network.parameters(), lr=LR, eps=1e-3)
         self.criterion = nn.MSELoss()
-        self.exp_queue = deque(maxlen=MEMORY_SIZE)
+        # self.exp_queue = deque(maxlen=MEMORY_SIZE)
+        self.exp_queue = []
         self.entropies = 0
 
         #load models
@@ -105,77 +106,88 @@ class A3C_trainer:
                 time.sleep(0.1)
 
     def update_model_network(self):
+        # List of actor loss, critic loss, entropy loss
+        list_actor_loss = []
+        list_critic_loss = []
+        list_entropy_loss = []
+        
         # Pick first element of the experience memory
-        game_exp = self.exp_queue.popleft()
+        for idx, game_exp in enumerate(self.exp_queue):
+            states = []
+            actions = []
+            rewards = []
+            next_states = []
+            dones = []
 
-        states = []
-        actions = []
-        rewards = []
-        next_states = []
-        dones = []
-        for element in game_exp:
-            states.append(element.state)
-            actions.append(element.action)
-            rewards.append(element.reward)
-            next_states.append(element.next_state)
-            dones.append(element.done)
+            for element in game_exp:
+                states.append(element.state)
+                actions.append(element.action)
+                rewards.append(element.reward)
+                next_states.append(element.next_state)
+                dones.append(element.done)
 
-        # Convert to tensor
-        states = torch.tensor(states, dtype=torch.float)
-        actions = torch.tensor(actions, dtype=torch.long)
-        rewards = torch.tensor(rewards, dtype=torch.float)
-        next_states = torch.tensor(next_states, dtype=torch.float)
-        dones = torch.tensor(dones, dtype=torch.float)
-
-        # print("states", states)
-        # print("actions", actions)
-        # print("rewards", rewards)
-        # print("next_states", next_states)
-        # print("dones", dones)
-
-        # Compute the advantage
-            # Compute the value of the current state
-        probs, values = self.model_network(states)
-            # Compute the value of the next state
-        _, next_values = self.model_network(next_states)
-
-        # print("probs", probs)
-        # print("values", values.squeeze())
-        # print("next_values", next_values.squeeze())
+            # Convert to tensor
+            states = torch.tensor(states, dtype=torch.float)
+            actions = torch.tensor(actions, dtype=torch.long)
+            rewards = torch.tensor(rewards, dtype=torch.float)
+            next_states = torch.tensor(next_states, dtype=torch.float)
+            dones = torch.tensor(dones, dtype=torch.float)
 
             # Compute the advantage
-        advantages = rewards + GAMMA * next_values.squeeze() * (1 - dones) - values.squeeze()
-        distribution = distr.Categorical(probs)
-        log_probs = distribution.log_prob(actions)
-        entropies = distribution.entropy()
+                # Compute the value of the current state
+            probs, values = self.model_network(states)
+                # Compute the value of the next state
+            _, next_values = self.model_network(next_states)
 
+                # Compute the advantage
+            advantages = rewards + GAMMA * next_values.squeeze() * (1 - dones) - values.squeeze()
+            distribution = distr.Categorical(probs)
+            log_probs = distribution.log_prob(actions)
+            entropies = distribution.entropy()
 
-        # print("advantages", advantages)
-        # print("log_probs", log_probs)
-        # print("entropies", entropies)
+                # Compute the loss
+            actor_loss = (-log_probs * advantages).mean()
+            critic_loss = advantages.pow(2).mean()
+            entropy_loss = ENTROPY_BETA * entropies.mean()
 
-            # Compute the loss
-        actor_loss = (-log_probs * advantages).mean()
-        critic_loss = advantages.pow(2).mean()
-        entropy_loss = ENTROPY_BETA * entropies.mean()
-        loss = actor_loss + critic_loss + entropy_loss
+            # Add the loss to the list
+            list_actor_loss.append(actor_loss)
+            list_critic_loss.append(critic_loss)
+            list_entropy_loss.append(entropy_loss)
 
-        # print("actor_loss", actor_loss)
-        # print("critic_loss", critic_loss)
-        # print("entropy_loss", entropy_loss)
-        # print("loss", loss)
+        # print("-----------------------")
 
-        self.loss_actor_value.value = actor_loss.item()
-        self.loss_critic_value.value = critic_loss.item()
+        # print("list_actor_loss", list_actor_loss)
+        # print("list_critic_loss", list_critic_loss)
+        # print("list_entropy_loss", list_entropy_loss)
+
+        list_actor_loss = torch.stack(list_actor_loss)
+        list_critic_loss = torch.stack(list_critic_loss)
+        list_entropy_loss = torch.stack(list_entropy_loss)
+
+        # print("list_actor_loss", list_actor_loss)
+        # print("list_critic_loss", list_critic_loss)
+        # print("list_entropy_loss", list_entropy_loss)
+
+        # print("actor_loss", list_actor_loss.mean())
+        # print("critic_loss", list_critic_loss.mean())
+        # print("entropy_loss", list_entropy_loss.mean())
+
+        loss = list_actor_loss.mean() + list_critic_loss.mean() + list_entropy_loss.mean()
+
+        self.loss_actor_value.value = list_actor_loss.mean().item()
+        self.loss_critic_value.value = list_critic_loss.mean().item()
 
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
+        self.exp_queue = []
+
     def fillin_exp_memory(self):
-        while not self.exp_buffer.empty() or not self.exp_queue:
+        while len(self.exp_queue) < MEMORY_SIZE:
             self.exp_queue.append(self.exp_buffer.get())
-            print("self.exp_queue", len(self.exp_queue))
+        # print("exp_queue", len(self.exp_queue), "ok")
 
 
     def save_model(self):
