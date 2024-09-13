@@ -122,7 +122,7 @@ class DQN_trainer:
         dones = torch.ByteTensor(dones)
         state_action_values = self.model_network(states).gather(1, torch.argmax(actions, dim=1).unsqueeze(1)).squeeze(1)
         next_state_values = self.model_target_network(next_states).max(1)[0]
-        next_state_values[dones] = 0.0
+        next_state_values[dones.bool()] = 0.0
         next_state_values = next_state_values.detach()
 
         expected_state_action_values = next_state_values * GAMMA + rewards
